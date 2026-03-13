@@ -70,11 +70,9 @@ function isEditableTarget(target: EventTarget | null) {
   const editableParent = target.closest(
     "input, textarea, select, [contenteditable='true']"
   )
-  if (editableParent) {
-    return true
-  }
+  return !!editableParent;
 
-  return false
+
 }
 
 export function ThemeProvider({
