@@ -71,6 +71,7 @@ async def subscribe_to_location_logic(
         "/users/me/subscriptions/",
         others=[
             {"href": f"/risk/{geohash}", "rel": "risk-data"},
+            {"href": f"/users/me/subscriptions/{geohash}", "rel": "unsubscribe"},
             {"href": "/users/me/subscriptions/", "rel": "collection"},
         ],
     )
@@ -152,7 +153,16 @@ async def get_user_subscriptions_logic(
                 risk_category=risk_category,
                 last_updated=zone.last_updated,
             ),
-            links=create_links(request, f"/risk/{zone.geohash}", others=[]),
+            links=create_links(
+                request,
+                f"/risk/{zone.geohash}",
+                others=[
+                    {
+                        "href": f"/users/me/subscriptions/{zone.geohash}",
+                        "rel": "unsubscribe",
+                    }
+                ],
+            ),
         )
         # Fix: the create_links rel=self will be /risk/{geohash}, we want rel=risk-data
         if feature.links:
@@ -165,3 +175,26 @@ async def get_user_subscriptions_logic(
     collection_links = create_links(request, "/users/me/subscriptions/")
 
     return GeoJSONFeatureCollection(features=features, links=collection_links)
+
+
+async def unsubscribe_from_location_logic(
+    db: AsyncSession, geohash: str, user_id: str
+) -> None:
+    """
+    Remove a user's subscription to a specific geohash.
+    """
+    # Find the subscription for this user and geohash
+    query = select(UserSubscription).where(
+        UserSubscription.user_id == user_id, UserSubscription.geohash == geohash
+    )
+    result = await db.execute(query)
+    subscription = result.scalars().first()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=404,
+            detail="Subscription not found for this user and location.",
+        )
+
+    await db.delete(subscription)
+    await db.commit()

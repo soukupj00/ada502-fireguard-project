@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
@@ -11,6 +11,7 @@ from app.schemas import (
 from app.services.subscription_service import (
     get_user_subscriptions_logic,
     subscribe_to_location_logic,
+    unsubscribe_from_location_logic,
 )
 
 # Changed prefix for better RESTful structure
@@ -42,3 +43,17 @@ async def get_my_subscriptions(
     """
     user_id = user.get("sub")
     return await get_user_subscriptions_logic(db, user_id, request)
+
+
+@router.delete("/{geohash}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subscription(
+    geohash: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> None:
+    """
+    Remove a subscription for the authenticated user.
+    """
+    user_id = user.get("sub")
+    await unsubscribe_from_location_logic(db, geohash, user_id)
+    return None
