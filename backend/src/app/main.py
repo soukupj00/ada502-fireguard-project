@@ -1,9 +1,10 @@
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.db.database import create_db_and_tables
 from app.routers import risk_router, subscription, zones
 
 
@@ -11,14 +12,15 @@ from app.routers import risk_router, subscription, zones
 async def lifespan(app: FastAPI):
     # Startup: Initialize resources (e.g., ML models, DB connections)
     print("FireGuard API starting up...")
-    # No need to init_db() here as Intelligence System handles schema
+    # Ensure all tables (like user_subscriptions) exist
+    await create_db_and_tables()
     yield
     # Shutdown: Clean up resources
     print("FireGuard API shutting down...")
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(
+    fastapi_app = FastAPI(
         title="FireGuard API",
         description="Fire risk calculation service",
         version="1.0.0",
@@ -38,7 +40,7 @@ def create_app() -> FastAPI:
     origins = [origin.strip() for origin in origins_str.split(",")]
 
     # Configure CORS for Frontend
-    app.add_middleware(
+    fastapi_app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
@@ -46,11 +48,44 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(risk_router.router)
-    app.include_router(zones.router)
-    app.include_router(subscription.router)
+    # Create central API V1 Router
+    api_v1_router = APIRouter(prefix="/api/v1")
 
-    return app
+    # Root API discovery
+    @api_v1_router.get("/", tags=["Discovery"])
+    async def api_root(request: Request):
+        from app.utils.hateoas import create_links, get_base_url
+
+        base_url = get_base_url(request)
+        version = base_url.split("/")[-1] if "/" in base_url else "v1"
+
+        links = create_links(
+            request,
+            "/",
+            others=[
+                {"href": "/risk/coords", "rel": "risk-by-coords"},
+                {"href": "/zones/", "rel": "zones"},
+                {"href": "/users/me/subscriptions/", "rel": "subscriptions"},
+            ],
+        )
+        return {
+            "message": f"Welcome to FireGuard API {version}",
+            "@context": {
+                "@vocab": "https://schema.org/",
+                "EntryPoint": "https://schema.org/EntryPoint",
+            },
+            "_links": links,
+        }
+
+    # Include versioned sub-routers
+    api_v1_router.include_router(risk_router.router)
+    api_v1_router.include_router(zones.router)
+    api_v1_router.include_router(subscription.router)
+
+    # Include the main API router into the app
+    fastapi_app.include_router(api_v1_router)
+
+    return fastapi_app
 
 
 app = create_app()

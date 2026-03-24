@@ -1,5 +1,5 @@
 services:
-  # 1. PostgreSQL Database (Development)
+  # 1. PostgreSQL Database for Application Data
   db:
     image: postgres:15-alpine
     restart: always
@@ -13,6 +13,24 @@ services:
       - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d fireguard_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 1.5 PostgreSQL Database for Keycloak
+  keycloak_db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: keycloak_user
+      POSTGRES_PASSWORD: keycloak_password
+      POSTGRES_DB: keycloak_db
+    ports:
+      - "5434:5432" # Expose on a different port to avoid conflicts
+    volumes:
+      - keycloak_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -55,7 +73,7 @@ services:
         - action: rebuild
           path: ./intelligence-system/pyproject.toml
 
-    # 4. React Frontend
+  # 4. React Frontend
   frontend:
     build:
       context: ./frontend
@@ -76,15 +94,28 @@ services:
       # Prevent node_modules from being overwritten by the host
       - /app/node_modules
 
-  # 4. Keycloak
+  # 5. Keycloak
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     command: start-dev
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      # Database Configuration
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_password
+      # Initial Admin Credentials
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Fix for modern Keycloak behind proxies/Docker
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
     ports:
       - "8080:8080"
+    depends_on:
+      keycloak_db:
+        condition: service_healthy
 
 volumes:
   postgres_data_dev:
+  keycloak_data_dev:

@@ -24,6 +24,14 @@ class FireRiskRequest(BaseModel):
     )
 
 
+class Link(BaseModel):
+    """HATEOAS Link Model"""
+
+    href: str
+    rel: str
+    type: str = "application/json"
+
+
 class FireRiskResponse(BaseModel):
     """Response model for fire risk prediction."""
 
@@ -43,6 +51,18 @@ class FireRiskResponse(BaseModel):
         description="Plain-text safety recommendation",
     )
     timestamp: datetime = Field(..., description="Timestamp of the prediction")
+    context: Dict[str, Any] = Field(
+        alias="@context",
+        default={
+            "@vocab": "https://schema.org/",
+            "FireRiskResponse": "https://schema.org/Observation",
+            "risk_score": "https://schema.org/value",
+            "timestamp": "https://schema.org/datePublished",
+        },
+    )
+    links: Optional[List[Link]] = Field(alias="_links", default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MonitoredZoneSchema(BaseModel):
@@ -69,8 +89,18 @@ class FireRiskReadingSchema(BaseModel):
     ttf: float
     prediction_timestamp: datetime
     updated_at: datetime
+    context: Dict[str, Any] = Field(
+        alias="@context",
+        default={
+            "@vocab": "https://schema.org/",
+            "FireRiskReading": "https://schema.org/Observation",
+            "geohash": "https://schema.org/identifier",
+            "risk_score": "https://schema.org/value",
+        },
+    )
+    links: Optional[List[Link]] = Field(alias="_links", default=None)
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class SubscriptionRequest(BaseModel):
@@ -100,9 +130,30 @@ class SubscriptionResponse(BaseModel):
     status: str
     message: str
     current_risk: Optional[float] = None
+    context: Dict[str, Any] = Field(
+        alias="@context",
+        default={
+            "@vocab": "https://schema.org/",
+            "SubscriptionResponse": "https://schema.org/Action",
+            "geohash": "https://schema.org/identifier",
+            "status": "https://schema.org/actionStatus",
+        },
+    )
+    links: Optional[List[Link]] = Field(alias="_links", default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
-# GeoJSON Models
+class UserSubscriptionListResponse(BaseModel):
+    """Response model for listing a user's subscriptions."""
+
+    geohashes: List[str]
+    links: Optional[List[Link]] = Field(alias="_links", default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# GeoJSON Models (with JSON-LD Context)
 
 
 class GeoJSONGeometry(BaseModel):
@@ -123,9 +174,25 @@ class GeoJSONFeature(BaseModel):
     type: str = "Feature"
     geometry: GeoJSONGeometry
     properties: GeoJSONProperties
+    # Optionally add context to each feature if needed, but usually it's on collections
+    context: Optional[Dict[str, Any]] = Field(alias="@context", default=None)
+    links: Optional[List[Link]] = Field(alias="_links", default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class GeoJSONFeatureCollection(BaseModel):
     type: str = "FeatureCollection"
     features: List[GeoJSONFeature]
-    context: Dict[str, Any] = Field(alias="@context", default={})
+    context: Dict[str, Any] = Field(
+        alias="@context",
+        default={
+            "@vocab": "https://purl.org/geojson/vocab#",
+            "FeatureCollection": "https://purl.org/geojson/vocab#FeatureCollection",
+            "Feature": "https://purl.org/geojson/vocab#Feature",
+            "Point": "https://purl.org/geojson/vocab#Point",
+        },
+    )
+    links: Optional[List[Link]] = Field(alias="_links", default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
