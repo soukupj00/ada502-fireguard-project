@@ -6,8 +6,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+
+import { Button } from "@/components/ui/button"
+
 import { ThemeProvider } from "@/components/theme-provider"
 import { ModeToggle } from "@/components/mode-toggle"
+import TestRiskAPI from "@/components/TestRiskAPI";
+
 
 function App() {
   return (
@@ -25,6 +30,19 @@ function App() {
           </div>
         </header>
         <main className="container mx-auto flex-1 p-4 py-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Location</CardTitle>
+              <CardDescription>Here you can see the fire risk for your location</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TestRiskAPI geohash="u67" />
+              <Button variant="outline">Change location</Button>
+            </CardContent>
+          </Card>
+
+
+
           <Card className="overflow-hidden border-muted/40 shadow-lg">
             <CardHeader className="border-b bg-muted/10 pb-6">
               <CardTitle className="text-2xl">Fire Probability Map</CardTitle>
@@ -37,7 +55,6 @@ function App() {
               <div className="relative z-0 h-150 w-full overflow-hidden rounded-md border shadow-inner">
                 <MapView />
               </div>
-
               <div className="mt-6 grid grid-cols-2 justify-center gap-4 rounded-lg border bg-muted/20 p-4 text-sm md:grid-cols-4">
                 <div className="flex items-center justify-center gap-2">
                   <div className="h-4 w-4 rounded bg-red-500 shadow-sm ring-1 ring-red-600/20"></div>
