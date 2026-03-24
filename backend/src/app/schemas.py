@@ -102,7 +102,13 @@ class SubscriptionResponse(BaseModel):
     current_risk: Optional[float] = None
 
 
-# GeoJSON Models
+class UserSubscriptionListResponse(BaseModel):
+    """Response model for listing a user's subscriptions."""
+
+    geohashes: List[str]
+
+
+# GeoJSON Models (with JSON-LD Context)
 
 
 class GeoJSONGeometry(BaseModel):
@@ -123,9 +129,21 @@ class GeoJSONFeature(BaseModel):
     type: str = "Feature"
     geometry: GeoJSONGeometry
     properties: GeoJSONProperties
+    # Optionally add context to each feature if needed, but usually it's on collections
+    context: Optional[Dict[str, Any]] = Field(alias="@context", default=None)
 
 
 class GeoJSONFeatureCollection(BaseModel):
     type: str = "FeatureCollection"
     features: List[GeoJSONFeature]
-    context: Dict[str, Any] = Field(alias="@context", default={})
+    context: Dict[str, Any] = Field(
+        alias="@context",
+        default={
+            "@vocab": "https://purl.org/geojson/vocab#",
+            "FeatureCollection": "https://purl.org/geojson/vocab#FeatureCollection",
+            "Feature": "https://purl.org/geojson/vocab#Feature",
+            "Point": "https://purl.org/geojson/vocab#Point",
+        },
+    )
+
+    model_config = ConfigDict(populate_by_name=True)

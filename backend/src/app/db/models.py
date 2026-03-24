@@ -1,8 +1,18 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -85,3 +95,24 @@ class CurrentFireRisk(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class UserSubscription(Base):
+    """
+    Links a user to a specific geohash they want to monitor.
+    """
+
+    __tablename__ = "user_subscriptions"
+    __table_args__ = (UniqueConstraint("user_id", "geohash", name="uix_user_geohash"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String, index=True
+    )  # Subject (sub) from Keycloak JWT
+    geohash: Mapped[str] = mapped_column(String, ForeignKey("monitored_zones.geohash"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    # Optional: Relationship back to the zone
+    zone: Mapped[MonitoredZone] = relationship()

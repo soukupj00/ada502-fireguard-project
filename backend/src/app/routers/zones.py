@@ -8,7 +8,7 @@ from app.services.zone_service import get_zones_geojson
 router = APIRouter(prefix="/zones", tags=["Zones"])
 
 
-@router.get("/", response_model=GeoJSONFeatureCollection)
+@router.get("/", response_model=GeoJSONFeatureCollection, response_model_by_alias=True)
 async def get_zones(
     regional_only: bool = True, db: AsyncSession = Depends(get_db)
 ) -> GeoJSONFeatureCollection:
