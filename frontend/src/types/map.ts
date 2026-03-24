@@ -20,6 +20,9 @@ export interface MapFeature {
 
   /** The textual category of the risk (e.g., "High", "Low") */
   riskCategory: string
+
+  /** Whether this is a user-subscribed zone */
+  isRegional: boolean
 }
 
 /**

@@ -131,3 +131,38 @@
      @apply font-sans;
   }
 }
+
+/* Fix for leaflet-geosearch in dark mode */
+.dark .leaflet-control-geosearch form {
+  background-color: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.dark .leaflet-control-geosearch form input {
+  color: var(--foreground);
+  background-color: var(--background);
+}
+
+.dark .leaflet-control-geosearch a.leaflet-bar-part:before {
+  border-color: var(--foreground);
+}
+
+.dark .leaflet-control-geosearch a.leaflet-bar-part:after {
+  border-color: var(--foreground);
+  background-color: var(--foreground);
+}
+
+.dark .leaflet-control-geosearch .results {
+  background-color: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.dark .leaflet-control-geosearch .results > * {
+  border-color: var(--border);
+}
+
+.dark .leaflet-control-geosearch .results > *:hover {
+  background-color: var(--muted);
+}

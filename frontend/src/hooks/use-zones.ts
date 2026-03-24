@@ -3,7 +3,7 @@ import { fetchZones } from "@/lib/api"
 import type { GeoJSONResponse } from "@/lib/types"
 
 export function useZones(regionalOnly: boolean = true) {
-  const { data, error, isLoading } = useSWR<GeoJSONResponse>(
+  const { data, error, isLoading, mutate } = useSWR<GeoJSONResponse>(
     ["/zones", regionalOnly],
     () => fetchZones(regionalOnly),
     {
@@ -16,5 +16,6 @@ export function useZones(regionalOnly: boolean = true) {
     zones: data,
     isLoading,
     isError: error,
+    mutate,
   }
 }

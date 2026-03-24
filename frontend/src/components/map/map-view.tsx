@@ -1,21 +1,39 @@
-import { MapContainer, Popup, Rectangle, TileLayer } from "react-leaflet"
+import {
+  MapContainer,
+  Popup,
+  Rectangle,
+  TileLayer,
+  useMap,
+} from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import type { LatLngBoundsExpression, LatLngExpression } from "leaflet"
+import L from "leaflet"
 import { useZones } from "@/hooks/use-zones"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
+// @ts-expect-error - latlon-geohash lacks type definitions
 import Geohash from "latlon-geohash"
-import type { MapFeature, SkippedFeature } from "@/types/map"
+import type { MapFeature } from "@/types/map"
 
 interface MapViewProps {
   center?: LatLngExpression
   zoom?: number
 }
 
+function AutoZoom({ bounds }: { bounds: LatLngBoundsExpression | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 })
+    }
+  }, [bounds, map])
+  return null
+}
+
 export function MapView({
   center = [58.359375, 10.546875] as LatLngExpression,
   zoom = 6,
 }: MapViewProps) {
-  const { zones, isLoading, isError } = useZones()
+  const { zones, isLoading, isError } = useZones(false)
 
   const getColor = (riskScore: number) => {
     if (riskScore >= 80) return "#ef4444" // red-500
@@ -27,25 +45,12 @@ export function MapView({
   const mapData = useMemo(() => {
     if (!zones) return []
 
-    console.group("Map Data Debug")
-    console.log("Total features:", zones.features.length)
+    const features = zones.features
+      .map((feature): MapFeature | null => {
+        const { geohash, risk_score, name, risk_category, is_regional } =
+          feature.properties
 
-    const skippedFeatures: SkippedFeature[] = []
-
-    const processedData = zones.features
-      .map((feature, index): MapFeature | null => {
-        const { geohash, risk_score, name, risk_category } = feature.properties
-
-        // Skip if geohash is missing or if risk_score is null (sea/no data)
         if (!geohash || risk_score === null) {
-          skippedFeatures.push({
-            index,
-            reason: !geohash ? "Missing geohash" : "Null risk_score",
-            feature: feature.properties,
-          })
-
-          if (!geohash)
-            console.warn(`Feature at index ${index} missing geohash`, feature)
           return null
         }
 
@@ -59,10 +64,15 @@ export function MapView({
 
           return {
             id: geohash,
-            name,
+            name:
+              name ||
+              (is_regional
+                ? `Regional Zone ${geohash}`
+                : `Personal Zone ${geohash}`),
             bounds: leafletBounds,
             riskScore: risk_score,
             riskCategory: risk_category ?? "N/A",
+            isRegional: is_regional,
           }
         } catch (e) {
           console.error(`Invalid geohash: ${geohash}`, e)
@@ -71,21 +81,29 @@ export function MapView({
       })
       .filter((item): item is MapFeature => item !== null)
 
-    if (skippedFeatures.length > 0) {
-      console.groupCollapsed(`Skipped Features (${skippedFeatures.length})`)
-      console.table(skippedFeatures)
-      console.groupEnd()
-    }
-
-    console.log("Processed map data:", processedData)
-    console.groupEnd()
-
-    return processedData
+    // Sort: regional first, then user zones (so user zones are rendered on top)
+    return [...features].sort((a, b) => {
+      if (a.isRegional === b.isRegional) return 0
+      return a.isRegional ? -1 : 1
+    })
   }, [zones])
+
+  const userZonesBounds = useMemo(() => {
+    const userZones = mapData.filter((f) => !f.isRegional)
+    if (userZones.length === 0) return null
+
+    const bounds = L.latLngBounds([])
+    userZones.forEach((zone) => {
+      bounds.extend(zone.bounds)
+    })
+    return bounds.isValid()
+      ? (bounds as unknown as LatLngBoundsExpression)
+      : null
+  }, [mapData])
 
   if (isLoading) {
     return (
-      <div className="flex h-full min-h-100 w-full animate-pulse items-center justify-center bg-muted/20">
+      <div className="flex h-full min-h-[400px] w-full animate-pulse items-center justify-center bg-muted/20">
         <span className="font-medium text-muted-foreground">
           Loading map data...
         </span>
@@ -95,7 +113,7 @@ export function MapView({
 
   if (isError) {
     return (
-      <div className="flex h-full min-h-100 w-full flex-col items-center justify-center bg-red-50 p-4 text-center text-red-500">
+      <div className="flex h-full min-h-[400px] w-full flex-col items-center justify-center bg-red-50 p-4 text-center text-red-500">
         <p className="font-bold">Error loading map data</p>
         <p className="text-sm">Please try again later.</p>
       </div>
@@ -115,6 +133,8 @@ export function MapView({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        <AutoZoom bounds={userZonesBounds} />
+
         {mapData.map((data) => (
           <Rectangle
             key={data.id}
@@ -122,14 +142,22 @@ export function MapView({
             pathOptions={{
               color: getColor(data.riskScore),
               fillColor: getColor(data.riskScore),
-              fillOpacity: 0.5,
-              weight: 1,
-              stroke: false, // Remove stroke to make gaps less visible if they are caused by border width
+              fillOpacity: data.isRegional ? 0.4 : 0.7,
+              weight: data.isRegional ? 1 : 3,
+              stroke: !data.isRegional,
+              dashArray: data.isRegional ? undefined : "5, 5",
             }}
           >
             <Popup>
-              <div className="min-w-37.5 p-1 text-sm">
-                <h3 className="mb-2 text-base font-semibold">{data.name}</h3>
+              <div className="min-w-[150px] p-1 text-sm">
+                <h3 className="mb-2 text-base font-semibold">
+                  {data.name}
+                  {!data.isRegional && (
+                    <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] tracking-wider text-primary uppercase">
+                      Subscribed
+                    </span>
+                  )}
+                </h3>
                 <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-xs">
                   <span className="font-medium text-muted-foreground">
                     Geohash:
