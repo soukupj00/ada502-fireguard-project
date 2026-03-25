@@ -13,10 +13,10 @@ from app.utils.hateoas import create_links
 
 
 async def get_zones_geojson(
-    db: AsyncSession, request: Request, regional_only: bool = True
+    db: AsyncSession, request: Request
 ) -> GeoJSONFeatureCollection:
     """
-    Get all monitored zones in GeoJSON format.
+    Get all regional monitored zones in GeoJSON format.
 
     This implementation fetches the latest risk data from the CurrentFireRisk table,
     which is updated periodically. This avoids complex queries on the historical
@@ -25,13 +25,9 @@ async def get_zones_geojson(
     Args:
         db: Database session.
         request: FastAPI Request object for dynamic links.
-        regional_only: If True, returns only regional (Tier 1) zones.
-                       If False, returns all zones including user-subscribed ones.
     """
     # 1. Fetch zones
-    zone_query = select(MonitoredZone)
-    if regional_only:
-        zone_query = zone_query.where(MonitoredZone.is_regional == True)  # noqa: E712
+    zone_query = select(MonitoredZone).where(MonitoredZone.is_regional == True)  # noqa: E712
 
     zone_result = await db.execute(zone_query)
     zones = zone_result.scalars().all()
@@ -42,7 +38,6 @@ async def get_zones_geojson(
             links=create_links(
                 request,
                 "/zones/",
-                others=[{"href": "/users/me/subscriptions/", "rel": "subscriptions"}],
             ),
         )
 
@@ -84,7 +79,6 @@ async def get_zones_geojson(
     collection_links = create_links(
         request,
         "/zones/",
-        others=[{"href": "/users/me/subscriptions/", "rel": "subscriptions"}],
     )
 
     return GeoJSONFeatureCollection(features=features, links=collection_links)

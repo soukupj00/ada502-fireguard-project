@@ -20,7 +20,6 @@ async def test_get_zones(mock_get_zones, client, mock_db_dep):
         ],
         _links=[
             Link(href="/api/v1/zones/", rel="self"),
-            Link(href="/api/v1/users/me/subscriptions/", rel="subscriptions"),
         ],
     )
     response = await client.get("/api/v1/zones/")
@@ -32,7 +31,7 @@ async def test_get_zones(mock_get_zones, client, mock_db_dep):
     assert "@context" in data
     assert data["@context"]["@vocab"] == "https://purl.org/geojson/vocab#"
     assert any(link["rel"] == "self" for link in data["_links"])
-    assert any(link["rel"] == "subscriptions" for link in data["_links"])
+    assert not any(link["rel"] == "subscriptions" for link in data["_links"])
 
     # Check feature-level links
     feature = data["features"][0]

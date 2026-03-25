@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_user_ws_or_sse
 from app.db.database import get_db
 from app.main import app
 
@@ -35,8 +35,10 @@ def mock_auth():
         return MOCK_USER
 
     app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_user_ws_or_sse] = override_get_current_user
     yield
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_user_ws_or_sse, None)
 
 
 @pytest.fixture

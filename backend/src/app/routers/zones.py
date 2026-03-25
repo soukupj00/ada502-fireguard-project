@@ -10,13 +10,10 @@ router = APIRouter(prefix="/zones", tags=["Zones"])
 
 @router.get("/", response_model=GeoJSONFeatureCollection, response_model_by_alias=True)
 async def get_zones(
-    request: Request, regional_only: bool = True, db: AsyncSession = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_db),
 ) -> GeoJSONFeatureCollection:
     """
-    Get all monitored zones in GeoJSON format.
-
-    Args:
-        regional_only: If True, returns only regional (Tier 1) zones.
-                       If False, returns all zones including user-subscribed ones.
+    Get all regional monitored zones in GeoJSON format.
     """
-    return await get_zones_geojson(db, request, regional_only)
+    return await get_zones_geojson(db, request)

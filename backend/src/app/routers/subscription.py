@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_user_ws_or_sse
 from app.db.database import get_db
 from app.schemas import (
     GeoJSONFeatureCollection,
@@ -65,7 +65,7 @@ async def delete_subscription(
 
 @router.get("/{geohash}/stream")
 async def stream_subscription_updates(
-    geohash: str, user: dict = Depends(get_current_user)
+    geohash: str, user: dict = Depends(get_current_user_ws_or_sse)
 ) -> StreamingResponse:
     """
     Streams fire risk updates for a specific geohash via Server-Sent Events.
