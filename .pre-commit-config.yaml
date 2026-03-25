@@ -3,19 +3,35 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.4 # Run 'pre-commit autoupdate' to get the latest
     hooks:
+      # Linter: Fixes unused imports, etc.
       - id: ruff
         args: [ --fix ]
+      # Formatter: Applies standard formatting
       - id: ruff-format
 
   # --- Frontend (Node.js / React) ---
   - repo: local
     hooks:
-      - id: eslint-frontend
-        name: ESLint (Frontend)
-        # Drops into the frontend folder and runs eslint with auto-fix
-        entry: bash -c 'cd frontend && npx eslint . --fix'
+      # 1. Formatter (e.g., Prettier)
+      - id: frontend-format
+        name: Frontend Format
+        entry: bash -c 'cd frontend && npm run format'
         language: system
-        # Only trigger this hook if JS/TS files in the frontend folder are modified
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css)$
+        pass_filenames: false
+
+      # 2. Linter (ESLint)
+      - id: frontend-lint
+        name: Frontend Lint
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
-        # We pass false so it lints the whole frontend project, avoiding relative pathing errors
+        pass_filenames: false
+
+      # 3. Typechecker (TypeScript)
+      - id: frontend-typecheck
+        name: Frontend Typecheck
+        entry: bash -c 'cd frontend && npm run typecheck'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
         pass_filenames: false

@@ -35,7 +35,14 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. FastAPI Backend
+  # 2. Redis
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379" # Expose in dev so you can inspect it with RedisInsight/CLI
+
+  # 3. FastAPI Backend
   backend:
     build:
       context: ./backend
@@ -45,8 +52,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://user:password@db:5432/fireguard_db
+      REDIS_URL: redis://redis:6379/0
     develop:
       watch:
         - action: sync
@@ -55,7 +65,7 @@ services:
         - action: rebuild
           path: ./backend/pyproject.toml
 
-  # 3. Intelligence System (The Worker)
+  # 4. Intelligence System (The Worker)
   intelligence:
     build:
       context: ./intelligence-system
@@ -63,8 +73,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://user:password@db:5432/fireguard_db
+      REDIS_URL: redis://redis:6379/0
     develop:
       watch:
         - action: sync
