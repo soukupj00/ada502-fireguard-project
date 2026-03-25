@@ -1,10 +1,11 @@
+// frontend/src/keycloak.ts
 import Keycloak from "keycloak-js"
 
 const keycloakConfig = {
-  // Use a relative path. Nginx/Vite will route this to the Keycloak container.
+ // Use a relative path. Nginx/Vite will route this to the Keycloak container.
   url: import.meta.env.VITE_KEYCLOAK_URL || "/auth",
   realm: "FireGuard",
-  clientId: "react-app",
+  clientId: "frontend-client", // Updated from 'react-app'
 }
 
 const keycloak = new Keycloak(keycloakConfig)

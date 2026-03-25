@@ -7,50 +7,54 @@ from fastapi.security import OAuth2AuthorizationCodeBearer
 from jose import JWTError, jwt
 
 # 1. ALLOW HTTP FOR LOCAL DEV
-# This prevents the "OAuth2 requires HTTPS" error in the Swagger UI
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 # Configuration Variables
 KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://localhost:8080/auth")
 REALM = os.getenv("KEYCLOAK_REALM", "FireGuard")
-# Use this for internal container-to-container calls if using Docker
 KEYCLOAK_INTERNAL_URL = os.getenv("KEYCLOAK_INTERNAL_URL", "http://keycloak:8080/auth")
 
-# 2. Updated OAuth2 Scheme
-# The frontend uses KEYCLOAK_URL,
-# but the backend must verify against KEYCLOAK_INTERNAL_URL
+# --- NEW CONFIGURATION ---
+# The Backend now has its own identity and secret
+BACKEND_CLIENT_ID = os.getenv("BACKEND_CLIENT_ID", "backend-client")
+BACKEND_CLIENT_SECRET = os.getenv("BACKEND_CLIENT_SECRET", "YOUR_SECRET_FROM_KEYCLOAK")
+# -------------------------
+
 oauth2_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl=f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/auth",
     tokenUrl=f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token",
 )
 
-# URL for Keycloak Public Keys (JWKS)
-# Use internal URL so the backend can reach Keycloak within the docker network
 JWKS_URL = f"{KEYCLOAK_INTERNAL_URL}/realms/{REALM}/protocol/openid-connect/certs"
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
-        # 3. FETCH PUBLIC KEYS (In a real app, cache this result!)
+        # FETCH PUBLIC KEYS (Consider caching this globally to
+        # avoid per-request network calls)
         async with httpx.AsyncClient() as client:
             response = await client.get(JWKS_URL)
             response.raise_for_status()
             jwks = response.json()
 
-        # 4. DECODE AND VERIFY
-        # We specify the audience (your client_id) to ensure the token was meant
-        # for THIS app
+        # DECODE AND VERIFY
+        # We now verify the audience to ensure the token
+        # was intended for the backend-client
         payload = jwt.decode(
             token,
             jwks,
             algorithms=["RS256"],
+            audience=BACKEND_CLIENT_ID,  # Verify that 'aud' claim
+            # matches 'backend-client'
             options={
-                "verify_aud": False
-            },  # Set to True and add audience="your-client-id" for prod
+                "verify_aud": True,  # Turned this ON for better security
+                "verify_at_hash": False,
+            },
         )
         return payload
 
     except JWTError as e:
+        # If this fails with "Invalid audience", check your Keycloak Audience Mapper
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {str(e)}",
