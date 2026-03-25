@@ -68,9 +68,13 @@ services:
     restart: always
     ports:
       - "80:80"  # This is the ONLY port exposed to the internet
+      - "443:443" # Open HTTPS port
     depends_on:
       - backend
       - keycloak
+    volumes: # Mount the certificates into Nginx
+      - ./nginx-selfsigned.crt:/etc/nginx/ssl/cert.crt:ro
+      - ./nginx-selfsigned.key:/etc/nginx/ssl/cert.key:ro
 
   # 7. Keycloak Auth Server
   keycloak:
@@ -85,7 +89,7 @@ services:
       KC_HTTP_RELATIVE_PATH: /auth/ # Forces Keycloak to serve from /auth/ to match Nginx
       KC_HOSTNAME_STRICT_HTTPS: "false" # Forces Keycloak to allow HTTP requests
       KC_HTTP_ENABLED: "true" # Forces Keycloak to allow HTTP requests
-      KC_HOSTNAME_URL: "http://158.37.63.48/auth/" # Set the public URL for Keycloak
+      KC_HOSTNAME_URL: "https://158.37.63.48/auth/" # Set the public URL for Keycloak
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
       KC_DB_USERNAME: keycloak_user
