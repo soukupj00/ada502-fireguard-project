@@ -83,6 +83,9 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_HOSTNAME_STRICT: "false" # Allows access via raw IP address instead of domain
       KC_HTTP_RELATIVE_PATH: /auth/ # Forces Keycloak to serve from /auth/ to match Nginx
+      KC_HOSTNAME_STRICT_HTTPS: "false" # Forces Keycloak to allow HTTP requests
+      KC_HTTP_ENABLED: "true" # Forces Keycloak to allow HTTP requests
+      KC_HOSTNAME_URL: "http://158.37.63.48/auth/" # Set the public URL for Keycloak
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
       KC_DB_USERNAME: keycloak_user
