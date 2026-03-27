@@ -116,3 +116,34 @@ jobs:
       - name: Build for Production
         # Compiles the React app to static files (dist/)
         run: npm run build
+
+    # ------------------------------------------------------------------
+    # JOB 4: DEPLOY TO NREC (Only runs on main after CI passes)
+    # ------------------------------------------------------------------
+    deploy:
+      name: Deploy to NREC
+      needs: [ backend, intelligence-ci, frontend ] # CRITICAL: Wait for tests to pass
+      # Only run this job if the push/merge was specifically to the main branch
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: Deploy via SSH
+          uses: appleboy/ssh-action@v1.0.3
+          with:
+            host: ${{ secrets.NREC_HOST }}
+            username: ${{ secrets.NREC_USERNAME }}
+            key: ${{ secrets.NREC_SSH_KEY }}
+            # These are the exact commands GitHub will type into your NREC terminal
+            script: |
+              # 1. Go to your project directory (adjust if your folder name is different)
+              cd ~/ADA502-FireGuard-Project
+
+              # 2. Pull the latest code from GitHub
+              git pull origin main
+
+              # 3. Rebuild and restart the containers in the background
+              sudo docker compose -f docker-compose.prod.yml up -d --build
+
+              # 4. Clean up old dangling images to save NREC disk space
+              sudo docker image prune -f
