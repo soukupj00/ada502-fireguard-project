@@ -140,10 +140,10 @@ jobs:
             git pull origin main
 
             # Rebuild and restart the containers in the background
-            sudo docker compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml up -d --build
             
             # Force Nginx to wake up and fetch the new internal IPs
-            sudo docker compose -f docker-compose.prod.yml restart frontend
+            docker compose -f docker-compose.prod.yml restart frontend
 
             # Clean up old dangling images to save NREC disk space
-            sudo docker image prune -f
+            docker image prune -f
