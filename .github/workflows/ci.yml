@@ -8,6 +8,22 @@ on:
 
 jobs:
   # ------------------------------------------------------------------
+  # JOB 0: Secret Scanner
+  # ------------------------------------------------------------------
+
+  secret-scan:
+    name: Secret Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Scans the whole history of the push
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ------------------------------------------------------------------
   # JOB 1: BACKEND (FastAPI + uv)
   # ------------------------------------------------------------------
   backend:
@@ -39,6 +55,12 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
+      - name: Run Security Scan (Bandit)
+        # Installs bandit and runs it against your code (assuming code is in ./src or ./app)
+        run: |
+          uv pip install bandit
+          uv run bandit -r . -ll -ii # -ll ignores low severity, -ii ignores low confidence
+
       - name: Run Tests
         # Runs pytest using the environment created by uv
         run: uv run pytest
@@ -46,6 +68,15 @@ jobs:
       - name: Verify Docker Build
         # Ensures the Dockerfile is valid and the app builds successfully
         run: docker build . -t fireguard-backend:latest
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'fireguard-backend:latest'
+          format: 'table'
+          exit-code: '1' # Fails the pipeline if critical issues are found
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
 
   #------------------------------------------------
   # Job 2: INTELLIGENCE SYSTEM
@@ -70,16 +101,31 @@ jobs:
       - name: Install Dependencies
         run: uv sync --all-extras --dev
 
-      - name: Lint (Ruff)
+      - name: Run Linter (Ruff)
         run: |
           uv run ruff check .
           uv run ruff format --check .
+
+      - name: Run Security Scan (Bandit)
+        # Installs bandit and runs it against your code (assuming code is in ./src or ./app)
+        run: |
+          uv pip install bandit
+          uv run bandit -r . -ll -ii # -ll ignores low severity, -ii ignores low confidence
 
       - name: Run Tests
         run: uv run pytest
 
       - name: Verify Docker Build
         run: docker build . -t fireguard-intelligence:latest
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'fireguard-backend:latest'
+          format: 'table'
+          exit-code: '1' # Fails the pipeline if critical issues are found
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
 
   # ------------------------------------------------------------------
   # JOB 3: FRONTEND (React + Vite)
@@ -113,13 +159,50 @@ jobs:
         # Verifies no type errors exist
         run: npm run tsc -- --noEmit
 
+      - name: Run Frontend Security Audit
+        run: npm audit --audit-level=high
+
       - name: Build for Production
         # Compiles the React app to static files (dist/)
         run: npm run build
 
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'fireguard-backend:latest'
+          format: 'table'
+          exit-code: '1' # Fails the pipeline if critical issues are found
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
     # ------------------------------------------------------------------
-    # JOB 4: DEPLOY TO NREC (Only runs on main after CI passes)
+    # JOB 4: Dynamic Testing with OWASP ZAP
     # ------------------------------------------------------------------
+    dast-scan:
+      name: OWASP ZAP Dynamic Scan
+      needs: [ backend, intelligence-ci, frontend ]
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+
+        # 1. Spin up your backend locally inside GitHub Actions
+        - name: Start Application locally
+          run: docker compose -f docker-compose.yml up -d backend db
+
+        # 2. Wait for FastAPI to be healthy
+        - name: Wait for Backend
+          run: sleep 15
+
+        # 3. Fire OWASP ZAP at the local container
+        - name: ZAP Baseline Scan
+          uses: zaproxy/action-baseline@v0.12.0
+          with:
+            target: 'http://localhost:8000/api/v1/docs' # Point it at your API or Swagger docs
+            fail_action: false # Set to true later once you fix initial warnings!
+
+  # ------------------------------------------------------------------
+  # JOB 4: DEPLOY TO NREC (Only runs on main after CI passes)
+  # ------------------------------------------------------------------
   deploy:
     name: Deploy to NREC
     needs: [ backend, intelligence-ci, frontend ] # CRITICAL: Wait for tests to pass
