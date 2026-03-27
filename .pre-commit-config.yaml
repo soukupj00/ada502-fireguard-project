@@ -1,7 +1,28 @@
 repos:
-  # --- Backend & Intelligence System (Python) ---
+  # ------------------------------------------------------------------
+  # 1. STANDARD GIT HYGIENE
+  # ------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  # ------------------------------------------------------------------
+  # 2. SECRET SCANNING
+  # ------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  # ------------------------------------------------------------------
+  # 3. BACKEND & INTELLIGENCE SYSTEM
+  # ------------------------------------------------------------------
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.4 # Run 'pre-commit autoupdate' to get the latest
+    rev: v0.15.8
     hooks:
       # Linter: Fixes unused imports, etc.
       - id: ruff
@@ -9,7 +30,16 @@ repos:
       # Formatter: Applies standard formatting
       - id: ruff-format
 
-  # --- Frontend (Node.js / React) ---
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.9.4
+    hooks:
+      - id: bandit
+        # Matches your CI/CD setup, explicitly ignoring virtual envs and tests
+        args: ["-ll", "-ii", "-x", "tests,.venv"]
+
+  # ------------------------------------------------------------------
+  # 4. FRONTEND (Node.js / React)
+  # ------------------------------------------------------------------
   - repo: local
     hooks:
       # 1. Formatter (e.g., Prettier)
@@ -34,4 +64,12 @@ repos:
         entry: bash -c 'cd frontend && npm run typecheck'
         language: system
         files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      # 4. Audit - acts as a gatekeeper and only runs on package changes
+      - id: frontend-audit
+        name: Frontend Audit
+        entry: bash -c 'cd frontend && npm audit --audit-level=high'
+        language: system
+        files: ^frontend/package.*\.json$
         pass_filenames: false
