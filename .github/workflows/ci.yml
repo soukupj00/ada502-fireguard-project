@@ -121,7 +121,7 @@ jobs:
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'fireguard-backend:latest'
+          image-ref: 'fireguard-intelligence:latest'
           format: 'table'
           exit-code: '1' # Fails the pipeline if critical issues are found
           ignore-unfixed: true
@@ -169,7 +169,7 @@ jobs:
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'fireguard-backend:latest'
+          image-ref: 'fireguard-frontend:latest'
           format: 'table'
           exit-code: '1' # Fails the pipeline if critical issues are found
           ignore-unfixed: true
