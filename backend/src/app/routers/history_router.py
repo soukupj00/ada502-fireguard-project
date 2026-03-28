@@ -52,9 +52,9 @@ async def get_zones_history(
         validated.risk_legend = RISK_LEGEND_DATA
         validated.links = create_links(
             request,
-            f"/risk/{reading.geohash}",
+            f"/risk/{validated.geohash}",
             others=[
-                {"href": f"/risk/{reading.geohash}/history", "rel": "history"},
+                {"href": f"/risk/{validated.geohash}/history", "rel": "history"},
             ],
         )
         validated_readings.append(validated)
