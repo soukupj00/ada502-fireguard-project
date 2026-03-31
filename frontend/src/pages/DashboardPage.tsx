@@ -22,6 +22,8 @@ import type { MapFeature } from "@/types/map"
 import { HistoryWidget } from "@/components/HistoryWidget"
 import { RiskLegendWidget } from "@/components/RiskLegendWidget"
 import { SubscriptionPanel } from "@/components/SubscriptionPanel"
+import { useMqttAlerts } from "@/hooks/use-mqtt-alerts"
+import { AnalyticsWidget } from "@/components/AnalyticsWidget"
 
 export default function DashboardPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false)
@@ -106,6 +108,9 @@ export default function DashboardPage() {
 
     return combinedFeatures
   }, [regionalZones, subscriptions])
+
+  // Activate MQTT alerts based on the user's subscriptions
+  useMqttAlerts(mapFeatures.filter((f) => !f.isRegional))
 
   return (
     <div className="container mx-auto flex-1 p-4 py-8">
@@ -216,7 +221,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 grid gap-8 lg:grid-cols-2">
+        <AnalyticsWidget />
         <HistoryWidget />
       </div>
     </div>

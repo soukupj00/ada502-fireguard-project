@@ -4,15 +4,15 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: fireguard_db
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-fireguard_db}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d fireguard_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-fireguard_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,15 +22,15 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      POSTGRES_USER: keycloak_user
-      POSTGRES_PASSWORD: keycloak_password
-      POSTGRES_DB: keycloak_db
+      POSTGRES_USER: ${KC_POSTGRES_USER:-keycloak_user}
+      POSTGRES_PASSWORD: ${KC_POSTGRES_PASSWORD:-keycloak_password}
+      POSTGRES_DB: ${KC_POSTGRES_DB:-keycloak_db}
     ports:
       - "5434:5432" # Expose on a different port to avoid conflicts
     volumes:
       - keycloak_data_dev:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${KC_POSTGRES_USER:-keycloak_user} -d ${KC_POSTGRES_DB:-keycloak_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -66,9 +66,12 @@ services:
         condition: service_started
       hivemq:
         condition: service_started
+    env_file:
+      - ./.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/fireguard_db
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/fireguard_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://hivemq:1883}
     develop:
       watch:
         - action: sync
@@ -87,9 +90,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    env_file:
+      - ./.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/fireguard_db
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/fireguard_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://hivemq:1883}
     develop:
       watch:
         - action: sync
@@ -106,9 +112,8 @@ services:
       target: development
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_KEYCLOAK_URL=http://localhost:8080/auth
+    env_file:
+      - ./.env # Load variables from root .env file
     depends_on:
       - backend
     volumes:
@@ -126,12 +131,12 @@ services:
     environment:
       # Database Configuration
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
-      KC_DB_USERNAME: keycloak_user
-      KC_DB_PASSWORD: keycloak_password
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/${KC_POSTGRES_DB:-keycloak_db}
+      KC_DB_USERNAME: ${KC_POSTGRES_USER:-keycloak_user}
+      KC_DB_PASSWORD: ${KC_POSTGRES_PASSWORD:-keycloak_password}
       # Initial Admin Credentials
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       # Fix for modern Keycloak behind proxies/Docker
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"

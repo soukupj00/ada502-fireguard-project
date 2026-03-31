@@ -14,6 +14,21 @@ CMD ["npm", "run", "dev", "--", "--host"]
 
 # STAGE 3: Build (Intermediate step for Prod)
 FROM base AS builder
+
+# Define build arguments that will be passed from docker-compose.prod.yml
+ARG VITE_API_URL
+ARG VITE_KEYCLOAK_URL
+ARG VITE_MQTT_BROKER_URL
+ARG VITE_THINGSPEAK_CHANNEL_ID
+ARG VITE_THINGSPEAK_READ_API_KEY
+
+# Set them as environment variables so Vite can embed them during the build
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL
+ENV VITE_MQTT_BROKER_URL=$VITE_MQTT_BROKER_URL
+ENV VITE_THINGSPEAK_CHANNEL_ID=$VITE_THINGSPEAK_CHANNEL_ID
+ENV VITE_THINGSPEAK_READ_API_KEY=$VITE_THINGSPEAK_READ_API_KEY
+
 COPY . .
 RUN npm run build
 
