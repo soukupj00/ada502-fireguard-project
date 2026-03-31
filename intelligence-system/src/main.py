@@ -1,5 +1,6 @@
 # intelligence-system/src/main.py
 import asyncio
+import datetime
 import json
 import logging
 
@@ -50,6 +51,14 @@ async def job() -> None:
         sample_geohash = monitored_zones[0].geohash
         latest_data = await get_latest_readings(sample_geohash)
         logger.info(f"DEBUG - Latest data for {sample_geohash}: {latest_data}")
+
+    # Publish event to Redis
+    event_payload = {
+        "event": "HOURLY_DATA_READY",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    await redis_client.publish("fireguard_events", json.dumps(event_payload))
+    logger.info("Published HOURLY_DATA_READY event to fireguard_events")
 
 
 async def process_instant_queue() -> None:
