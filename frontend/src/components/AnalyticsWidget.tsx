@@ -20,40 +20,62 @@ import {
 } from "@/components/ui/chart"
 import { useThingspeakData } from "@/hooks/use-thingspeak-data"
 
-const chartConfig = {
-  temperature: {
-    label: "Temperature (°C)",
-    color: "hsl(var(--chart-1))",
-  },
-  riskScore: {
-    label: "Risk Score (0-100)",
-    color: "hsl(var(--chart-2))",
-  },
-  humidity: {
-    label: "Humidity (%)",
-    color: "hsl(var(--chart-3))",
-  },
-} satisfies ChartConfig
-
 export function AnalyticsWidget() {
   const { data, isLoading, isError } = useThingspeakData(24) // Fetch last 24 results
 
+  // Dynamically build the chart configuration based on ThingSpeak channel metadata
+  const chartConfig = useMemo(() => {
+    const config: Record<string, { label: string; color: string }> = {}
+    if (!data || !data.channel) return config
+
+    // Map each field to a color from the Tailwind theme (chart-1 through chart-8)
+    const fields = [
+      { key: "field1", label: data.channel.field1 },
+      { key: "field2", label: data.channel.field2 },
+      { key: "field3", label: data.channel.field3 },
+      { key: "field4", label: data.channel.field4 },
+      { key: "field5", label: data.channel.field5 },
+      { key: "field6", label: data.channel.field6 },
+      { key: "field7", label: data.channel.field7 },
+      { key: "field8", label: data.channel.field8 },
+    ]
+
+    fields.forEach((field, index) => {
+      if (field.label) {
+        config[field.key] = {
+          label: field.label,
+          color: `hsl(var(--chart-${(index % 5) + 1}))`, // Cycle through 5 standard chart colors
+        }
+      }
+    })
+
+    return config satisfies ChartConfig
+  }, [data])
+
+  // Dynamically parse the feed data to match the configured fields
   const chartData = useMemo(() => {
-    if (!data?.feeds) return []
+    if (!data || !data.feeds || !data.channel) return []
 
     return data.feeds.map((feed) => {
-      return {
-        // Parse time nicely for the x-axis
+      // Base object with formatted time
+      const dataPoint: Record<string, string | number | null> = {
         time: new Date(feed.created_at).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        // Map fields to what they represent (adjust based on your actual ThingSpeak setup)
-        // Assume field1=temperature, field2=humidity, field3=riskScore
-        temperature: parseFloat(feed.field1 || "0"),
-        humidity: parseFloat(feed.field2 || "0"),
-        riskScore: parseFloat(feed.field3 || "0"),
       }
+
+      // Add data only for fields that have a name in the channel metadata
+      for (let i = 1; i <= 8; i++) {
+        const fieldKey = `field${i}` as keyof typeof feed
+        const channelFieldKey = `field${i}` as keyof typeof data.channel
+
+        if (data.channel[channelFieldKey]) {
+          const val = feed[fieldKey]
+          dataPoint[fieldKey] = val ? parseFloat(val as string) : null
+        }
+      }
+      return dataPoint
     })
   }, [data])
 
@@ -71,19 +93,25 @@ export function AnalyticsWidget() {
     )
   }
 
+  // Get the keys of the active fields to render the lines
+  const activeFields = Object.keys(chartConfig)
+
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>IoT Sensor Analytics</CardTitle>
+        <CardTitle>
+          {data?.channel?.name || "National Fire Risk Analytics"}
+        </CardTitle>
         <CardDescription>
           {isLoading
             ? "Loading data..."
-            : "Real-time historical data from ThingSpeak sensors"}
+            : data?.channel?.description ||
+              "Hourly Fire Risk Scores across Norway"}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {chartData.length > 0 ? (
-          <ChartContainer config={chartConfig} className="min-h-75 w-full">
+          <ChartContainer config={chartConfig} className="min-h-100 w-full">
             <LineChart
               accessibilityLayer
               data={chartData}
@@ -106,36 +134,31 @@ export function AnalyticsWidget() {
                 axisLine={false}
                 tickMargin={8}
                 fontSize={12}
+                domain={[0, "dataMax + 10"]} // Add some padding to the top of the graph
               />
               <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-              <Line
-                dataKey="temperature"
-                type="monotone"
-                stroke="var(--color-temperature)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                dataKey="riskScore"
-                type="monotone"
-                stroke="var(--color-riskScore)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                dataKey="humidity"
-                type="monotone"
-                stroke="var(--color-humidity)"
-                strokeWidth={2}
-                dot={false}
-              />
+
+              {/* Dynamically render a Line for every active field */}
+              {activeFields.map((fieldKey) => (
+                <Line
+                  key={fieldKey}
+                  dataKey={fieldKey}
+                  type="monotone"
+                  stroke={`var(--color-${fieldKey})`}
+                  strokeWidth={fieldKey === "field8" ? 3 : 2} // Make National Average (field8) thicker
+                  dot={false}
+                  // Make standard cities slightly dashed, and National average solid, or vice versa if you prefer
+                  strokeDasharray={fieldKey !== "field8" ? "4 4" : undefined}
+                />
+              ))}
+
               <ChartLegend content={<ChartLegendContent />} />
             </LineChart>
           </ChartContainer>
         ) : (
           !isLoading && (
-            <div className="flex min-h-75 items-center justify-center text-muted-foreground">
-              No data available yet.
+            <div className="flex min-h-100 items-center justify-center text-muted-foreground">
+              No data available yet. Waiting for Intelligence System to publish.
             </div>
           )
         )}
