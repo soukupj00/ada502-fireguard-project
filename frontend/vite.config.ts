@@ -22,7 +22,14 @@ export default defineConfig({
       },
       // Forward /auth requests to the Keycloak container
       "/auth": {
-        target: "http://keycloak:8080/auth",
+        target: "http://keycloak:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+      // Forward /mqtt WebSocket requests to HiveMQ
+      "/mqtt": {
+        target: "ws://hivemq:8081",
+        ws: true,
         changeOrigin: true,
         secure: false,
       },

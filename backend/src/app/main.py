@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -9,6 +10,12 @@ from app.background import redis_listener_task
 from app.db.database import create_db_and_tables
 from app.routers import history_router, risk_router, subscription, zones
 from app.services.mqtt_service import mqtt_client
+from config import settings
+
+logging.basicConfig(
+    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 
 @asynccontextmanager
@@ -24,6 +31,22 @@ async def lifespan(app: FastAPI):
     # Start the Redis listener as a background task
     redis_task = asyncio.create_task(redis_listener_task())
 
+    # Start MQTT test task if enabled
+    mqtt_test_task = None
+    if settings.MQTT_TEST_MODE:
+        print("MQTT Test Mode enabled - starting 30s interval push...")
+        from app.services.mqtt_test_service import mqtt_test_push_task
+
+        mqtt_test_task = asyncio.create_task(mqtt_test_push_task())
+
+    # Start ThingSpeak test task if enabled
+    thingspeak_test_task = None
+    if settings.THINGSPEAK_TEST_MODE:
+        print("ThingSpeak Test Mode enabled - starting 1min interval push...")
+        from app.services.thingspeak_test_service import thingspeak_test_push_task
+
+        thingspeak_test_task = asyncio.create_task(thingspeak_test_push_task())
+
     yield
 
     # Shutdown: Clean up resources
@@ -35,6 +58,22 @@ async def lifespan(app: FastAPI):
         await redis_task
     except asyncio.CancelledError:
         print("Redis listener task successfully cancelled.")
+
+    # Stop MQTT test task if it was started
+    if mqtt_test_task:
+        mqtt_test_task.cancel()
+        try:
+            await mqtt_test_task
+        except asyncio.CancelledError:
+            print("MQTT test task successfully cancelled.")
+
+    # Stop ThingSpeak test task if it was started
+    if thingspeak_test_task:
+        thingspeak_test_task.cancel()
+        try:
+            await thingspeak_test_task
+        except asyncio.CancelledError:
+            print("ThingSpeak test task successfully cancelled.")
 
     # Disconnect from MQTT
     mqtt_client.stop()

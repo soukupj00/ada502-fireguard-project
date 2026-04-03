@@ -40,11 +40,14 @@ services:
   hivemq:
     image: hivemq/hivemq-ce:latest
     restart: always
-    ports:
-      - "1883:1883"   # Standard MQTT Port for the Backend to publish
-      # Port 8000 is internal for WebSockets, shielded by Nginx
+    expose:
+      - "1883" # Internal MQTT for backend/intelligence only
+      - "8000" # Internal WebSocket endpoint proxied by frontend/Nginx
     volumes:
       - hivemq_data:/opt/hivemq/data
+      - ./intelligence-system/hivemq/extensions/hivemq-file-rbac-extension:/opt/hivemq/extensions/hivemq-file-rbac-extension:ro
+      - ./intelligence-system/hivemq/extensions/hivemq-allow-all-extension/DISABLED:/opt/hivemq/extensions/hivemq-allow-all-extension/DISABLED:ro
+      - ./intelligence-system/hivemq/certs:/opt/hivemq/certs:ro
 
   # 5. FastAPI Backend
   backend:
@@ -61,6 +64,15 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://fireuser:firepassword@db:5432/fireguard_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://hivemq:1883}
+      HIVEMQ_HOST: ${HIVEMQ_HOST:-hivemq}
+      HIVEMQ_PORT: ${HIVEMQ_PORT:-1883}
+      HIVEMQ_USERNAME: ${HIVEMQ_USERNAME:-}
+      HIVEMQ_PASSWORD: ${HIVEMQ_PASSWORD:-}
+      HIVEMQ_USE_TLS: ${HIVEMQ_USE_TLS:-false}
+      HIVEMQ_CA_CERT: ${HIVEMQ_CA_CERT:-}
+      HIVEMQ_CLIENT_CERT: ${HIVEMQ_CLIENT_CERT:-}
+      HIVEMQ_CLIENT_KEY: ${HIVEMQ_CLIENT_KEY:-}
+      HIVEMQ_TLS_INSECURE: ${HIVEMQ_TLS_INSECURE:-false}
       THINGSPEAK_WRITE_API_KEY: ${THINGSPEAK_WRITE_API_KEY}
 
   # 6. Intelligence System
@@ -88,6 +100,8 @@ services:
         VITE_API_URL: ${VITE_API_URL:-https://your-domain.com/api}
         VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-https://your-domain.com/auth}
         VITE_MQTT_BROKER_URL: ${VITE_MQTT_BROKER_URL:-wss://your-domain.com/mqtt}
+        VITE_MQTT_USERNAME: ${VITE_MQTT_USERNAME:-fireguard_backend}
+        VITE_MQTT_PASSWORD: ${VITE_MQTT_PASSWORD:-}
         VITE_THINGSPEAK_CHANNEL_ID: ${VITE_THINGSPEAK_CHANNEL_ID}
         VITE_THINGSPEAK_READ_API_KEY: ${VITE_THINGSPEAK_READ_API_KEY}
     restart: always

@@ -68,11 +68,29 @@ export interface GeoJSONFeatureCollection extends BaseHATEOASResponse {
   risk_legend?: RiskLegend | null
 }
 
+// Backward-compatible alias still used by hooks/widgets.
+export type GeoJSONResponse = GeoJSONFeatureCollection
+
 export interface SubscriptionResponse extends BaseHATEOASResponse {
   geohash: string
   status: "active" | "pending"
   message: string
   current_risk: number | null
+}
+
+export type SubscriptionRequest =
+  | string
+  | {
+      geohash: string
+    }
+
+export interface ApiError {
+  message?: string
+  response?: {
+    data?: {
+      detail?: string
+    }
+  }
 }
 
 export interface UserSubscriptionListResponse extends BaseHATEOASResponse {
@@ -85,4 +103,11 @@ export interface StreamRiskData {
   risk_score: number
   ttf: number
   timestamp: string
+}
+
+export interface GeoSearchResult {
+  location: {
+    x: number
+    y: number
+  }
 }

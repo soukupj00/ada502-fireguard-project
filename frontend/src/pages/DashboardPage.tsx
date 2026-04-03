@@ -37,6 +37,7 @@ export default function DashboardPage() {
 
   const handleLocationSelect = (lat: number, lng: number) => {
     setSelectedLocation({ lat, lng })
+    setIsSelectionMode(false)
   }
 
   // Dashboard fetches BOTH regional zones and user subscriptions
@@ -191,6 +192,7 @@ export default function DashboardPage() {
                     isLoading={isRegionalLoading || isSubsLoading}
                     isError={isRegionalError || isSubsError}
                     autoZoomToBounds={true}
+                    selectedLocation={selectedLocation}
                   />
                 </div>
               )}
@@ -212,6 +214,7 @@ export default function DashboardPage() {
             <SubscriptionPanel
               isSelectionMode={isSelectionMode}
               selectedLocation={selectedLocation}
+              onEditLocation={() => setIsSelectionMode(true)}
               onSubscriptionSuccess={() => {
                 setIsSelectionMode(false)
                 setSelectedLocation(null)
@@ -221,7 +224,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-2">
+      <div className="mt-8">
         <AnalyticsWidget />
         <HistoryWidget />
       </div>

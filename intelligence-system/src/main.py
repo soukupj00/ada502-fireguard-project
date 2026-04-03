@@ -92,6 +92,11 @@ async def process_instant_queue() -> None:
                 if risk_data:
                     # 3. Publish the result back to Redis so the Backend can stream it
                     channel_name = f"location_updates:{loc_id}"
+                    await redis_client.set(
+                        f"location_updates:last:{loc_id}",
+                        json.dumps(risk_data),
+                        ex=3600,
+                    )
                     await redis_client.publish(channel_name, json.dumps(risk_data))
                     logger.info(f"Published update to {channel_name}")
 

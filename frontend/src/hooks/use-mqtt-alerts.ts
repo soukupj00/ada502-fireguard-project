@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
 import mqtt from "mqtt"
 import { toast } from "sonner"
-import { MQTT_BROKER_URL } from "@/lib/env"
+import { MQTT_BROKER_URL, MQTT_PASSWORD, MQTT_USERNAME } from "@/lib/env"
 import type { MapFeature } from "@/types/map"
 
 export function useMqttAlerts(subscriptions: MapFeature[] | undefined) {
@@ -10,7 +10,12 @@ export function useMqttAlerts(subscriptions: MapFeature[] | undefined) {
   useEffect(() => {
     // 1. Connect to the HiveMQ Broker
     // We use the WebSocket URL defined in our env
-    const client = mqtt.connect(MQTT_BROKER_URL)
+    const client = mqtt.connect(MQTT_BROKER_URL, {
+      connectTimeout: 10000,
+      reconnectPeriod: 5000,
+      ...(MQTT_USERNAME ? { username: MQTT_USERNAME } : {}),
+      ...(MQTT_PASSWORD ? { password: MQTT_PASSWORD } : {}),
+    })
     clientRef.current = client
 
     client.on("connect", () => {

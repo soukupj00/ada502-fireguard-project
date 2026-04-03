@@ -110,6 +110,25 @@ async def create_db_and_tables() -> None:
     """Creates the database and tables if they do not exist."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Add missing columns for backward compatibility
+        from sqlalchemy import text
+
+        await conn.execute(
+            text(
+                """
+                ALTER TABLE fire_risk_readings
+                ADD COLUMN IF NOT EXISTS rh_in DOUBLE PRECISION
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                ALTER TABLE current_fire_risks
+                ADD COLUMN IF NOT EXISTS rh_in DOUBLE PRECISION
+                """
+            )
+        )
 
 
 async def seed_initial_zones() -> None:

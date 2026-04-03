@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useSWRConfig } from "swr"
-import { toast } from "sonr"
+import Geohash from "latlon-geohash"
+
 import { Loader2, MapPin } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -14,8 +15,19 @@ import {
 import { Input } from "@/components/ui/input"
 import { subscribeToLocation } from "@/lib/api"
 import { useLocationStream } from "@/hooks/use-location-stream"
+import { toast } from "sonner"
 
-export function LocationSubscriber() {
+interface LocationSubscriberProps {
+  selectedLat?: number | null
+  selectedLon?: number | null
+  onSuccess?: () => void
+}
+
+export function LocationSubscriber({
+  selectedLat = null,
+  selectedLon = null,
+  onSuccess,
+}: LocationSubscriberProps) {
   const [geohash, setGeohash] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingGeohash, setPendingGeohash] = useState<string | null>(null)
@@ -23,6 +35,12 @@ export function LocationSubscriber() {
 
   // Subscribe to the SSE stream if we are waiting for a new location
   const { riskData, error } = useLocationStream(pendingGeohash)
+
+  useEffect(() => {
+    if (selectedLat === null || selectedLon === null) return
+    // Precision 5 keeps subscriptions at a practical area size.
+    setGeohash(Geohash.encode(selectedLat, selectedLon, 5))
+  }, [selectedLat, selectedLon])
 
   useEffect(() => {
     if (riskData) {
@@ -34,8 +52,10 @@ export function LocationSubscriber() {
       // Re-fetch zones to show on map
       mutate(["/zones", false])
       mutate("/users/me/subscriptions/")
+      // Call success callback to clear selection and clean up UI
+      onSuccess?.()
     }
-  }, [riskData, mutate])
+  }, [riskData, mutate, onSuccess])
 
   useEffect(() => {
     if (error) {
@@ -60,6 +80,7 @@ export function LocationSubscriber() {
         toast.success("Successfully subscribed to location")
         mutate(["/zones", false])
         mutate("/users/me/subscriptions/")
+        onSuccess?.()
       } else if (response.status === "pending") {
         toast.info(
           "Subscription queued. Waiting for initial risk calculation..."

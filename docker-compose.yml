@@ -40,17 +40,25 @@ services:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379" # Expose in dev so you can inspect it with RedisInsight/CLI
+      - "127.0.0.1:${REDIS_HOST_PORT:-6380}:6379" # Local-only mapping avoids 6379 host conflicts
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # 4. HiveMQ MQTT Broker (NEW)
   hivemq:
     image: hivemq/hivemq-ce:latest
     restart: always
     ports:
-      - "1883:1883" # Expose MQTT for dev scripts
-      - "8000:8000" # Expose WebSockets for local browser testing
+      - "127.0.0.1:${MQTT_HOST_PORT:-1883}:1883" # Local-only mapping for MQTT clients in development
+      - "127.0.0.1:${MQTT_WS_HOST_PORT:-8081}:8000" # Local-only mapping for HiveMQ web UI/WebSocket
     volumes:
       - hivemq_data_dev:/opt/hivemq/data
+      - ./intelligence-system/hivemq/extensions/hivemq-file-rbac-extension:/opt/hivemq/extensions/hivemq-file-rbac-extension:ro
+      - ./intelligence-system/hivemq/extensions/hivemq-allow-all-extension/DISABLED:/opt/hivemq/extensions/hivemq-allow-all-extension/DISABLED:ro
+      - ./intelligence-system/hivemq/certs:/opt/hivemq/certs:ro
 
   # 5. FastAPI Backend
   backend:
@@ -63,7 +71,7 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       hivemq:
         condition: service_started
     env_file:
@@ -72,6 +80,16 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/fireguard_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://hivemq:1883}
+      MQTT_TEST_MODE: ${MQTT_TEST_MODE:-true}
+      HIVEMQ_HOST: ${HIVEMQ_HOST:-hivemq}
+      HIVEMQ_PORT: ${HIVEMQ_PORT:-1883}
+      HIVEMQ_USERNAME: ${HIVEMQ_USERNAME:-}
+      HIVEMQ_PASSWORD: ${HIVEMQ_PASSWORD:-}
+      HIVEMQ_USE_TLS: ${HIVEMQ_USE_TLS:-false}
+      HIVEMQ_CA_CERT: ${HIVEMQ_CA_CERT:-}
+      HIVEMQ_CLIENT_CERT: ${HIVEMQ_CLIENT_CERT:-}
+      HIVEMQ_CLIENT_KEY: ${HIVEMQ_CLIENT_KEY:-}
+      HIVEMQ_TLS_INSECURE: ${HIVEMQ_TLS_INSECURE:-false}
       THINGSPEAK_WRITE_API_KEY: ${THINGSPEAK_WRITE_API_KEY}
     develop:
       watch:
@@ -90,7 +108,7 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ./.env
     environment:
@@ -111,6 +129,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: development
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL}
+        VITE_MQTT_BROKER_URL: ${VITE_MQTT_BROKER_URL}
+        VITE_MQTT_USERNAME: ${VITE_MQTT_USERNAME}
+        VITE_MQTT_PASSWORD: ${VITE_MQTT_PASSWORD}
+        VITE_THINGSPEAK_CHANNEL_ID: ${VITE_THINGSPEAK_CHANNEL_ID}
+        VITE_THINGSPEAK_READ_API_KEY: ${VITE_THINGSPEAK_READ_API_KEY}
     ports:
       - "5173:5173"
     env_file:

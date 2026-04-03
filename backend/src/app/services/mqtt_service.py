@@ -16,6 +16,20 @@ class MQTTService:
         self.port = settings.HIVEMQ_PORT
         self._connected = False
 
+        if settings.HIVEMQ_USERNAME:
+            self.client.username_pw_set(
+                settings.HIVEMQ_USERNAME,
+                settings.HIVEMQ_PASSWORD,
+            )
+
+        if settings.HIVEMQ_USE_TLS:
+            self.client.tls_set(
+                ca_certs=settings.HIVEMQ_CA_CERT,
+                certfile=settings.HIVEMQ_CLIENT_CERT,
+                keyfile=settings.HIVEMQ_CLIENT_KEY,
+            )
+            self.client.tls_insecure_set(settings.HIVEMQ_TLS_INSECURE)
+
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
 

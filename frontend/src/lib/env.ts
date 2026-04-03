@@ -1,10 +1,21 @@
 // src/lib/env.ts
 
 // --- MQTT Broker Configuration ---
-// For development, this points to the local HiveMQ container's WebSocket port.
-// For production, this should point to the Nginx proxy path (e.g., "wss://your-domain.com/mqtt").
-export const MQTT_BROKER_URL =
-  import.meta.env.VITE_MQTT_BROKER_URL || "ws://localhost:8000"
+// Use relative /mqtt by default so dev proxy and production reverse proxy can share one setting.
+const rawMqttBrokerUrl = import.meta.env.VITE_MQTT_BROKER_URL || "/mqtt"
+
+const resolveMqttUrl = (value: string) => {
+  if (!value.startsWith("/")) {
+    return value
+  }
+
+  const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+  return `${wsProtocol}//${window.location.host}${value}`
+}
+
+export const MQTT_BROKER_URL = resolveMqttUrl(rawMqttBrokerUrl)
+export const MQTT_USERNAME = import.meta.env.VITE_MQTT_USERNAME || ""
+export const MQTT_PASSWORD = import.meta.env.VITE_MQTT_PASSWORD || ""
 
 // --- ThingSpeak Configuration ---
 // The public Channel ID for your ThingSpeak data.
