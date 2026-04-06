@@ -38,7 +38,7 @@ RUN npm run build
 FROM nginx:alpine AS production
 
 # Pull patched security packages from Alpine repos (fixes libpng CVEs reported by Trivy)
-RUN apk --no-cache upgrade libpng
+RUN apk --no-cache update && apk --no-cache upgrade
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.prod.conf /etc/nginx/conf.d/default.conf
