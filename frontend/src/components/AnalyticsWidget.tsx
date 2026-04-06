@@ -174,6 +174,12 @@ export function AnalyticsWidget() {
     setSelectedFields(newSelected)
   }
 
+  // Helper function to get field index from field key (e.g., "field1" -> 0, "field2" -> 1)
+  const getFieldIndex = (fieldKey: string): number => {
+    const match = fieldKey.match(/\d+/)
+    return match ? parseInt(match[0]) - 1 : 0
+  }
+
   if (isError) {
     return (
       <Card>
@@ -213,9 +219,10 @@ export function AnalyticsWidget() {
             See All
           </Button>
 
-          {Object.entries(chartConfig).map(([fieldKey, config], index) => {
+          {Object.entries(chartConfig).map(([fieldKey, config]) => {
             const isSelected = selectedFields.has(fieldKey)
-            const color = CHART_COLORS[index % CHART_COLORS.length]
+            const fieldIndex = getFieldIndex(fieldKey)
+            const color = CHART_COLORS[fieldIndex % CHART_COLORS.length]
             return (
               <Button
                 key={fieldKey}
@@ -280,9 +287,10 @@ export function AnalyticsWidget() {
               <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
 
               {/* Dynamically render a Line for every active field */}
-              {activeFields.map((fieldKey, index) => {
-                const lineStyle = LINE_STYLES[index % LINE_STYLES.length]
-                const color = CHART_COLORS[index % CHART_COLORS.length]
+              {activeFields.map((fieldKey) => {
+                const fieldIndex = getFieldIndex(fieldKey)
+                const lineStyle = LINE_STYLES[fieldIndex % LINE_STYLES.length]
+                const color = CHART_COLORS[fieldIndex % CHART_COLORS.length]
                 return (
                   <Line
                     key={fieldKey}
