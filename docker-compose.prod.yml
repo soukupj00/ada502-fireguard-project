@@ -35,8 +35,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # 4. HiveMQ MQTT Broker (NEW)
+  # 4. HiveMQ MQTT Broker
   hivemq:
     image: hivemq/hivemq-ce:latest
     restart: always
@@ -54,10 +59,14 @@ services:
     build: ./backend
     restart: always
     depends_on:
-      - db
-      - keycloak
-      - redis
-      - hivemq # Backend needs MQTT to publish alerts
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      hivemq:
+        condition: service_started
     env_file:
       - ./.env
     environment:
