@@ -20,6 +20,8 @@ class Settings(BaseSettings):
 
     # ThingSpeak API Settings
     THINGSPEAK_WRITE_API_KEY: str = ""  # ThingSpeak Write API Key
+    THINGSPEAK_CHANNEL_ID: str | None = None
+    THINGSPEAK_BACKFILL_ON_STARTUP: bool = False
 
     # Testing Settings
     MQTT_TEST_MODE: bool = False  # Enable 30s interval MQTT push for testing

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.db.analytics_targets import sync_analytics_target_flags
 from app.db.models import Base, MonitoredZone
 from config import settings
 
@@ -34,7 +35,6 @@ async def create_db_and_tables() -> None:
         try:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-                # Keep older databases compatible with the current model definition.
                 await conn.execute(
                     text(
                         """
@@ -53,7 +53,7 @@ async def create_db_and_tables() -> None:
                     )
                 )
             logger.info("Database and tables created/verified successfully.")
-            return
+            break
         except Exception as e:
             if attempt < max_retries - 1:
                 logger.warning(
@@ -67,6 +67,9 @@ async def create_db_and_tables() -> None:
                     f"Failed to connect to database after {max_retries} attempts."
                 )
                 raise
+
+    async with AsyncSessionLocal() as db:
+        await sync_analytics_target_flags(db)
 
 
 async def get_monitored_zones() -> Sequence[Any]:

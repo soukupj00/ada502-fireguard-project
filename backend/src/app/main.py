@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.background import redis_listener_task
 from app.db.database import create_db_and_tables
 from app.routers import history_router, risk_router, subscription, zones
+from app.services.event_processor_service import backfill_thingspeak_last_24h
 from app.services.mqtt_service import mqtt_client
 from config import settings
 
@@ -30,6 +31,11 @@ async def lifespan(app: FastAPI):
 
     # Start the Redis listener as a background task
     redis_task = asyncio.create_task(redis_listener_task())
+
+    # Backfill last 24h analytics once on startup so ThingSpeak graphs have history.
+    thingspeak_backfill_task = None
+    if settings.THINGSPEAK_BACKFILL_ON_STARTUP:
+        thingspeak_backfill_task = asyncio.create_task(backfill_thingspeak_last_24h())
 
     # Start MQTT test task if enabled
     mqtt_test_task = None
@@ -74,6 +80,14 @@ async def lifespan(app: FastAPI):
             await thingspeak_test_task
         except asyncio.CancelledError:
             print("ThingSpeak test task successfully cancelled.")
+
+    # Stop backfill task if it is still running.
+    if thingspeak_backfill_task and not thingspeak_backfill_task.done():
+        thingspeak_backfill_task.cancel()
+        try:
+            await thingspeak_backfill_task
+        except asyncio.CancelledError:
+            print("ThingSpeak backfill task successfully cancelled.")
 
     # Disconnect from MQTT
     mqtt_client.stop()
