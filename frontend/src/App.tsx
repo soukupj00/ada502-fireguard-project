@@ -26,7 +26,7 @@ const ProtectedRoute = ({
   return children
 }
 
-// Redirect logged in users away from the public home page
+// Redirect logged-in users away from the public home page
 const PublicRoute = ({
   children,
   isAuthenticated,
