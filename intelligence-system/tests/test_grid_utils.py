@@ -46,3 +46,12 @@ def test_generate_initial_zones_coverage():
     assert first_zone["is_regional"] is True
     assert "center_lat" in first_zone
     assert "center_lon" in first_zone
+
+
+def test_generate_initial_zones_marks_analytics_targets():
+    """Verify that the canonical analytics targets are flagged in the seed set."""
+    zones = generate_initial_zones()
+    analytics_targets = [zone for zone in zones if zone["is_analytics_target"]]
+
+    assert len(analytics_targets) == 7
+    assert all(len(zone["geohash"]) == 3 for zone in analytics_targets)

@@ -64,16 +64,15 @@ function SearchField({
     map.addControl(searchControl)
 
     // Listen for the location found event from geosearch
-    const handleLocationFound = (e: GeoSearchResult) => {
+    const handleLocationFound: L.LeafletEventHandlerFn = (event) => {
+      const e = event as L.LeafletEvent & GeoSearchResult
       onLocationSelect(e.location.y, e.location.x)
     }
 
-    // @ts-expect-error - geosearch events aren't natively typed in leaflet's event map
     map.on("geosearch/showlocation", handleLocationFound)
 
     return () => {
       map.removeControl(searchControl)
-      // @ts-expect-error - geosearch events aren't natively typed in leaflet's event map
       map.off("geosearch/showlocation", handleLocationFound)
     }
   }, [map, onLocationSelect])

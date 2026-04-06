@@ -41,6 +41,9 @@ async def test_job_cycle(mock_db_session):
     # Mock the risk calculation result
     mock_risk_result = {"ttf": 5.5, "timestamp": "2023-10-27T10:00:00Z"}
 
+    mock_redis = AsyncMock()
+    mock_redis.publish = AsyncMock()
+
     # We patch AsyncSessionLocal in 'database' so that save_weather_data uses our mock
     # session. We also patch get_monitored_zones to avoid a DB query for zones.
     with (
@@ -48,6 +51,7 @@ async def test_job_cycle(mock_db_session):
         patch("main.get_monitored_zones", return_value=[mock_zone]),
         patch("services.zone_processor.fetch_weather", return_value=mock_met_data),
         patch("services.zone_processor.calculate_risk", return_value=mock_risk_result),
+        patch("main.redis_client", mock_redis),
     ):
         await job()
 
@@ -58,6 +62,9 @@ async def test_job_cycle(mock_db_session):
         # Verify commit was called
         assert mock_db_session.commit.called
 
+        # Verify redis publish was called
+        assert mock_redis.publish.called
+
 
 @pytest.mark.asyncio
 async def test_process_instant_queue_success():
@@ -66,7 +73,7 @@ async def test_process_instant_queue_success():
         geohash="u4p9x", center_lat=60.39, center_lon=5.32, name="Test Zone"
     )
     task_message = json.dumps({"location_id": "u4p9x"})
-    risk_data = {"location_id": "u4p9x", "risk_level": "High", "risk_score": 75.0}
+    risk_data = {"location_id": "u4p9x", "risk_category": "High", "risk_score": 75.0}
 
     # Mock Redis client
     mock_redis = AsyncMock()

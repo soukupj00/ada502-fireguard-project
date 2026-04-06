@@ -16,6 +16,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0", #this one is need to verify JWT tokens
     "httpx>=0.28.1",
     "redis>=7.4.0",
+    "paho-mqtt>=2.1.0",
 ]
 
 [dependency-groups]

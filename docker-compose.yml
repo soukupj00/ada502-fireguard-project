@@ -4,15 +4,15 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: fireguard_db
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-fireguard_db}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d fireguard_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-fireguard_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,15 +22,15 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      POSTGRES_USER: keycloak_user
-      POSTGRES_PASSWORD: keycloak_password
-      POSTGRES_DB: keycloak_db
+      POSTGRES_USER: ${KC_POSTGRES_USER:-keycloak_user}
+      POSTGRES_PASSWORD: ${KC_POSTGRES_PASSWORD:-keycloak_password}
+      POSTGRES_DB: ${KC_POSTGRES_DB:-keycloak_db}
     ports:
       - "5434:5432" # Expose on a different port to avoid conflicts
     volumes:
       - keycloak_data_dev:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${KC_POSTGRES_USER:-keycloak_user} -d ${KC_POSTGRES_DB:-keycloak_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -40,9 +40,27 @@ services:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379" # Expose in dev so you can inspect it with RedisInsight/CLI
+      - "127.0.0.1:${REDIS_HOST_PORT:-6380}:6379" # Local-only mapping avoids 6379 host conflicts
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # 4. FastAPI Backend
+  # 4. HiveMQ MQTT Broker (NEW)
+  hivemq:
+    image: hivemq/hivemq-ce:latest
+    restart: always
+    ports:
+      - "127.0.0.1:${MQTT_HOST_PORT:-1883}:1883" # Local-only mapping for MQTT clients in development
+      - "127.0.0.1:${MQTT_WS_HOST_PORT:-8081}:8000" # Local-only mapping for HiveMQ web UI/WebSocket
+    volumes:
+      - hivemq_data_dev:/opt/hivemq/data
+      - ./intelligence-system/hivemq/extensions/hivemq-file-rbac-extension:/opt/hivemq/extensions/hivemq-file-rbac-extension:ro
+      - ./intelligence-system/hivemq/extensions/hivemq-allow-all-extension/DISABLED:/opt/hivemq/extensions/hivemq-allow-all-extension/DISABLED:ro
+      - ./intelligence-system/hivemq/certs:/opt/hivemq/certs:ro
+
+  # 5. FastAPI Backend
   backend:
     build:
       context: ./backend
@@ -53,10 +71,26 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      hivemq:
         condition: service_started
+    env_file:
+      - ./.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/fireguard_db
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/fireguard_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://hivemq:1883}
+      MQTT_TEST_MODE: ${MQTT_TEST_MODE:-true}
+      HIVEMQ_HOST: ${HIVEMQ_HOST:-hivemq}
+      HIVEMQ_PORT: ${HIVEMQ_PORT:-1883}
+      HIVEMQ_USERNAME: ${HIVEMQ_USERNAME:-}
+      HIVEMQ_PASSWORD: ${HIVEMQ_PASSWORD:-}
+      HIVEMQ_USE_TLS: ${HIVEMQ_USE_TLS:-false}
+      HIVEMQ_CA_CERT: ${HIVEMQ_CA_CERT:-}
+      HIVEMQ_CLIENT_CERT: ${HIVEMQ_CLIENT_CERT:-}
+      HIVEMQ_CLIENT_KEY: ${HIVEMQ_CLIENT_KEY:-}
+      HIVEMQ_TLS_INSECURE: ${HIVEMQ_TLS_INSECURE:-false}
+      THINGSPEAK_WRITE_API_KEY: ${THINGSPEAK_WRITE_API_KEY}
     develop:
       watch:
         - action: sync
@@ -65,7 +99,7 @@ services:
         - action: rebuild
           path: ./backend/pyproject.toml
 
-  # 5. Intelligence System (The Worker)
+  # 6. Intelligence System (The Worker)
   intelligence:
     build:
       context: ./intelligence-system
@@ -74,10 +108,13 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    env_file:
+      - ./.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/fireguard_db
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/fireguard_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://hivemq:1883}
     develop:
       watch:
         - action: sync
@@ -86,20 +123,26 @@ services:
         - action: rebuild
           path: ./intelligence-system/pyproject.toml
 
-  # 6. React Frontend
+  # 7. React Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       target: development
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL}
+        VITE_MQTT_BROKER_URL: ${VITE_MQTT_BROKER_URL}
+        VITE_MQTT_USERNAME: ${VITE_MQTT_USERNAME}
+        VITE_MQTT_PASSWORD: ${VITE_MQTT_PASSWORD}
+        VITE_THINGSPEAK_CHANNEL_ID: ${VITE_THINGSPEAK_CHANNEL_ID}
+        VITE_THINGSPEAK_READ_API_KEY: ${VITE_THINGSPEAK_READ_API_KEY}
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_KEYCLOAK_URL=http://localhost:8080/auth
+    env_file:
+      - ./.env # Load variables from root .env file
     depends_on:
       - backend
-    # ADD THIS SECTION BELOW:
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
@@ -108,19 +151,19 @@ services:
       # Prevent node_modules from being overwritten by the host
       - /app/node_modules
 
-  # 7. Keycloak
+  # 8. Keycloak
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     command: start-dev
     environment:
       # Database Configuration
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
-      KC_DB_USERNAME: keycloak_user
-      KC_DB_PASSWORD: keycloak_password
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/${KC_POSTGRES_DB:-keycloak_db}
+      KC_DB_USERNAME: ${KC_POSTGRES_USER:-keycloak_user}
+      KC_DB_PASSWORD: ${KC_POSTGRES_PASSWORD:-keycloak_password}
       # Initial Admin Credentials
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       # Fix for modern Keycloak behind proxies/Docker
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
@@ -137,3 +180,4 @@ services:
 volumes:
   postgres_data_dev:
   keycloak_data_dev:
+  hivemq_data_dev:

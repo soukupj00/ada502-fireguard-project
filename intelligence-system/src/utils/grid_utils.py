@@ -1,6 +1,16 @@
-from typing import List, Tuple
+from dataclasses import dataclass
+from typing import Iterable, List, Tuple
 
 import pygeohash as pgh
+
+from utils.constants import ANALYTICS_CITIES
+
+
+@dataclass(frozen=True)
+class _CandidateZone:
+    geohash: str
+    center_lat: float
+    center_lon: float
 
 
 def get_geohash(lat: float, lon: float, precision: int = 5) -> str:
@@ -34,6 +44,52 @@ def get_geohash_center(geohash: str) -> Tuple[float, float]:
     lat, lon = pgh.decode(geohash)
     # pygeohash returns strings or floats depending on version, ensure float
     return float(lat), float(lon)
+
+
+def _distance_sq(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    return (lat1 - lat2) ** 2 + (lon1 - lon2) ** 2
+
+
+def _pick_analytics_zones(zones: Iterable[_CandidateZone]) -> list[str]:
+    remaining = list(zones)
+    chosen: list[str] = []
+
+    for city in ANALYTICS_CITIES:
+        if not remaining:
+            break
+
+        city_lat = city["latitude"]
+        city_lon = city["longitude"]
+        nearest = min(
+            remaining,
+            key=lambda zone: _distance_sq(
+                city_lat, city_lon, zone.center_lat, zone.center_lon
+            ),
+        )
+        chosen.append(nearest.geohash)
+        remaining.remove(nearest)
+
+    return chosen
+
+
+def mark_analytics_targets(zones: List[dict]) -> List[dict]:
+    if not zones:
+        return zones
+
+    candidate_zones = [
+        _CandidateZone(
+            geohash=zone["geohash"],
+            center_lat=zone["center_lat"],
+            center_lon=zone["center_lon"],
+        )
+        for zone in zones
+    ]
+    chosen_geohashes = set(_pick_analytics_zones(candidate_zones))
+
+    for zone in zones:
+        zone["is_analytics_target"] = zone["geohash"] in chosen_geohashes
+
+    return zones
 
 
 def generate_initial_zones() -> List[dict]:
@@ -77,6 +133,7 @@ def generate_initial_zones() -> List[dict]:
                         "center_lon": lon,
                         "is_regional": True,
                         "name": f"Regional Zone {gh}",
+                        "is_analytics_target": False,
                     }
                 )
                 seen_hashes.add(gh)
@@ -84,4 +141,4 @@ def generate_initial_zones() -> List[dict]:
             current_lon += lon_step
         current_lat += lat_step
 
-    return zones
+    return mark_analytics_targets(zones)

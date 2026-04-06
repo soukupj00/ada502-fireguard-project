@@ -55,7 +55,7 @@ async def test_process_zone_success(mock_db_session):
         assert result is not None
         assert result["location_id"] == "u4p9x"
         assert result["ttf"] == 5.5
-        assert "risk_level" in result
+        assert "risk_category" in result
         assert "risk_score" in result
 
         mock_fetch.assert_called_once_with(60.39, 5.32)

@@ -61,7 +61,7 @@ async def _do_process_zone(zone: Any) -> Dict[str, Any] | None:
         risk_score, risk_category = calculate_risk_score(risk_result["ttf"])
         return {
             "location_id": zone.geohash,
-            "risk_level": risk_category,
+            "risk_category": risk_category,  # Changed from risk_level to risk_category
             "risk_score": risk_score,
             "ttf": risk_result["ttf"],
             "timestamp": risk_result["timestamp"].isoformat()

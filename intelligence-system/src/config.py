@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost/fireguard"
     REDIS_URL: str = "redis://redis:6379/0"
-    FETCH_INTERVAL_SECONDS: int = 3600
+    FETCH_INTERVAL_SECONDS: int = 3600  # 3600
     MAX_CONCURRENT_FETCHES: int = 5
 
     @field_validator("DATABASE_URL", mode="before")

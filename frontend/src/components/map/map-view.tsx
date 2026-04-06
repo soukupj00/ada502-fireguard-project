@@ -4,6 +4,7 @@ import {
   Rectangle,
   TileLayer,
   useMap,
+  Marker,
 } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import type { LatLngBoundsExpression, LatLngExpression } from "leaflet"
@@ -21,15 +22,28 @@ interface MapViewProps {
   isLoading?: boolean
   isError?: boolean
   autoZoomToBounds?: boolean
+  selectedLocation?: { lat: number; lng: number } | null
 }
 
-function AutoZoom({ bounds }: { bounds: LatLngBoundsExpression | null }) {
+function AutoZoom({
+  bounds,
+  selectedLocation,
+}: {
+  bounds: LatLngBoundsExpression | null
+  selectedLocation: { lat: number; lng: number } | null
+}) {
   const map = useMap()
   useEffect(() => {
-    if (bounds) {
+    // If selected location exists, prioritize zooming to it closely
+    if (selectedLocation) {
+      map.setView([selectedLocation.lat, selectedLocation.lng], 10, {
+        animate: true,
+      })
+    } else if (bounds) {
+      // Otherwise use the bounds zoom if available
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 })
     }
-  }, [bounds, map])
+  }, [bounds, selectedLocation, map])
   return null
 }
 
@@ -40,6 +54,7 @@ export function MapView({
   isLoading = false,
   isError = false,
   autoZoomToBounds = false,
+  selectedLocation = null,
 }: MapViewProps) {
   // Sort: regional first, then user zones (so user zones are rendered on top)
   const sortedFeatures = useMemo(() => {
@@ -99,7 +114,10 @@ export function MapView({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <AutoZoom bounds={userZonesBounds} />
+        <AutoZoom
+          bounds={userZonesBounds}
+          selectedLocation={selectedLocation}
+        />
 
         {sortedFeatures.map((data) => {
           const style = getRiskStyle(data.riskScore, data.isRegional)
@@ -159,6 +177,12 @@ export function MapView({
             </Rectangle>
           )
         })}
+
+        {selectedLocation && (
+          <Marker position={[selectedLocation.lat, selectedLocation.lng]}>
+            <Popup>Your selected location</Popup>
+          </Marker>
+        )}
       </MapContainer>
     </div>
   )

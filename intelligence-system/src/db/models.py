@@ -25,6 +25,9 @@ class MonitoredZone(Base):
         Boolean, default=True
     )  # True = Tier 1 (Map), False = Tier 2 (User)
     name: Mapped[str | None] = mapped_column(String, nullable=True)
+    is_analytics_target: Mapped[bool] = mapped_column(
+        Boolean, default=False
+    )  # True if this zone's data should be pushed to ThingSpeak
     last_updated: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -59,6 +62,7 @@ class FireRiskReading(Base):
     latitude: Mapped[float] = mapped_column(Float)
     longitude: Mapped[float] = mapped_column(Float)
     ttf: Mapped[float] = mapped_column(Float)
+    rh_in: Mapped[float | None] = mapped_column(Float, nullable=True)
     risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     risk_category: Mapped[str | None] = mapped_column(String, nullable=True)
     prediction_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -79,6 +83,7 @@ class CurrentFireRisk(Base):
     latitude: Mapped[float] = mapped_column(Float)
     longitude: Mapped[float] = mapped_column(Float)
     ttf: Mapped[float] = mapped_column(Float)
+    rh_in: Mapped[float | None] = mapped_column(Float, nullable=True)
     risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     risk_category: Mapped[str | None] = mapped_column(String, nullable=True)
     prediction_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))

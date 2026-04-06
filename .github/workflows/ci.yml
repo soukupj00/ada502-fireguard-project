@@ -10,7 +10,6 @@ jobs:
   # ------------------------------------------------------------------
   # JOB 0: Secret Scanner
   # ------------------------------------------------------------------
-
   secret-scan:
     name: Secret Scanner
     runs-on: ubuntu-latest
@@ -188,6 +187,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 0. Create an empty .env file so Docker Compose doesn't crash
+      - name: Create dummy .env
+        run: touch .env
+
       # 1. Spin up your backend locally inside GitHub Actions
       - name: Start Application locally
         run: docker compose -f docker-compose.yml up -d backend db
@@ -204,11 +207,11 @@ jobs:
           fail_action: false # Set to true later once you fix initial warnings!
 
   # ------------------------------------------------------------------
-  # JOB 4: DEPLOY TO NREC (Only runs on main after CI passes)
+  # JOB 5: DEPLOY TO NREC (Only runs on main after CI passes)
   # ------------------------------------------------------------------
   deploy:
     name: Deploy to NREC
-    needs: [ backend, intelligence-ci, frontend ] # CRITICAL: Wait for tests to pass
+    needs: [ backend, intelligence-ci, frontend, dast-scan ] # CRITICAL: Wait for tests to pass
     # Only run this job if the push/merge was specifically to the main branch
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -227,7 +230,7 @@ jobs:
 
             # Rebuild and restart the containers in the background
             docker compose -f docker-compose.prod.yml up -d --build
-            
+
             # Force Nginx to wake up and fetch the new internal IPs
             docker compose -f docker-compose.prod.yml restart frontend
 

@@ -22,6 +22,8 @@ import type { MapFeature } from "@/types/map"
 import { HistoryWidget } from "@/components/HistoryWidget"
 import { RiskLegendWidget } from "@/components/RiskLegendWidget"
 import { SubscriptionPanel } from "@/components/SubscriptionPanel"
+import { useMqttAlerts } from "@/hooks/use-mqtt-alerts"
+import { AnalyticsWidget } from "@/components/AnalyticsWidget"
 
 export default function DashboardPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false)
@@ -35,6 +37,7 @@ export default function DashboardPage() {
 
   const handleLocationSelect = (lat: number, lng: number) => {
     setSelectedLocation({ lat, lng })
+    setIsSelectionMode(false)
   }
 
   // Dashboard fetches BOTH regional zones and user subscriptions
@@ -106,6 +109,9 @@ export default function DashboardPage() {
 
     return combinedFeatures
   }, [regionalZones, subscriptions])
+
+  // Activate MQTT alerts based on the user's subscriptions
+  useMqttAlerts(mapFeatures.filter((f) => !f.isRegional))
 
   return (
     <div className="container mx-auto flex-1 p-4 py-8">
@@ -186,6 +192,7 @@ export default function DashboardPage() {
                     isLoading={isRegionalLoading || isSubsLoading}
                     isError={isRegionalError || isSubsError}
                     autoZoomToBounds={true}
+                    selectedLocation={selectedLocation}
                   />
                 </div>
               )}
@@ -207,6 +214,7 @@ export default function DashboardPage() {
             <SubscriptionPanel
               isSelectionMode={isSelectionMode}
               selectedLocation={selectedLocation}
+              onEditLocation={() => setIsSelectionMode(true)}
               onSubscriptionSuccess={() => {
                 setIsSelectionMode(false)
                 setSelectedLocation(null)
@@ -217,6 +225,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-8">
+        <AnalyticsWidget />
         <HistoryWidget />
       </div>
     </div>

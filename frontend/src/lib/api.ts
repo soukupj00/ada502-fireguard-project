@@ -73,7 +73,9 @@ export const fetchSecureData = async (endpoint: string) => {
 export const subscribeToLocation = async (
   payload: SubscriptionRequest
 ): Promise<SubscriptionResponse> => {
-  const response = await apiClient.post("/users/me/subscriptions/", payload)
+  const requestBody =
+    typeof payload === "string" ? { geohash: payload } : payload
+  const response = await apiClient.post("/users/me/subscriptions/", requestBody)
   return response.data
 }
 

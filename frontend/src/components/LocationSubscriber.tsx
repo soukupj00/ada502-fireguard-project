@@ -1,93 +1,99 @@
 import { useState, useEffect } from "react"
-import type { ApiError } from "@/lib/types"
-import { subscribeToLocation } from "@/lib/api"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
-import keycloak from "@/keycloak"
 import { useSWRConfig } from "swr"
+import Geohash from "latlon-geohash"
+
+import { Loader2, MapPin } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { subscribeToLocation } from "@/lib/api"
 import { useLocationStream } from "@/hooks/use-location-stream"
+import { toast } from "sonner"
 
 interface LocationSubscriberProps {
-  selectedLat: number | null
-  selectedLon: number | null
+  selectedLat?: number | null
+  selectedLon?: number | null
   onSuccess?: () => void
 }
 
 export function LocationSubscriber({
-  selectedLat,
-  selectedLon,
+  selectedLat = null,
+  selectedLon = null,
   onSuccess,
 }: LocationSubscriberProps) {
+  const [geohash, setGeohash] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingGeohash, setPendingGeohash] = useState<string | null>(null)
   const { mutate } = useSWRConfig()
 
-  const { riskData, error: streamError } = useLocationStream(pendingGeohash)
+  // Subscribe to the SSE stream if we are waiting for a new location
+  const { riskData, error } = useLocationStream(pendingGeohash)
+
+  useEffect(() => {
+    if (selectedLat === null || selectedLon === null) return
+    // Precision 5 keeps subscriptions at a practical area size.
+    setGeohash(Geohash.encode(selectedLat, selectedLon, 5))
+  }, [selectedLat, selectedLon])
 
   useEffect(() => {
     if (riskData) {
       toast.info("Real-time risk data received!", {
-        description: `Risk Level: ${riskData.risk_level} (Score: ${riskData.risk_score?.toFixed(2)})`,
+        description: `Risk Level: ${riskData.risk_category} (Score: ${riskData.risk_score?.toFixed(2)})`,
       })
       // Clear pending geohash once data is received
       setPendingGeohash(null)
       // Re-fetch zones to show on map
       mutate(["/zones", false])
       mutate("/users/me/subscriptions/")
-      if (onSuccess) onSuccess()
+      // Call success callback to clear selection and clean up UI
+      onSuccess?.()
     }
   }, [riskData, mutate, onSuccess])
 
   useEffect(() => {
-    if (streamError) {
+    if (error) {
       toast.error("Stream Error", {
         description:
           "Failed to receive real-time updates for the new location.",
       })
+      console.error("SSE Error:", error)
       setPendingGeohash(null)
     }
-  }, [streamError])
+  }, [error])
 
-  const handleSubscribe = async () => {
-    // Safety check: is the user actually logged in?
-    if (!keycloak.authenticated) {
-      toast.error("Authentication Required", {
-        description: "Please log in to subscribe to alerts.",
-      })
-      await keycloak.login()
-      return
-    }
-
-    if (selectedLat === null || selectedLon === null) return
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!geohash.trim()) return
 
     setIsSubmitting(true)
     try {
-      const response = await subscribeToLocation({
-        latitude: selectedLat,
-        longitude: selectedLon,
-      })
+      const response = await subscribeToLocation(geohash)
 
-      // The backend returns a status: "active" (already tracked) or "pending" (new zone)
-      toast.success("Subscription Successful!", {
-        description: response.message || "You are now tracking this location.",
-      })
-
-      // If the zone is newly created (pending), we wait for the stream
-      if (response.status === "pending") {
+      if (response.status === "active") {
+        toast.success("Successfully subscribed to location")
+        mutate(["/zones", false])
+        mutate("/users/me/subscriptions/")
+        onSuccess?.()
+      } else if (response.status === "pending") {
+        toast.info(
+          "Subscription queued. Waiting for initial risk calculation..."
+        )
+        // Start listening to the SSE stream
         setPendingGeohash(response.geohash)
-      } else {
-        // If it was already active, we just refresh everything
-        await mutate(["/zones", false])
-        await mutate("/users/me/subscriptions/")
-        if (onSuccess) onSuccess()
       }
-    } catch (error: unknown) {
-      const apiError = error as ApiError
-      const message = apiError.message || "An unknown error occurred"
-      const detail = apiError.response?.data?.detail
-
-      toast.error("Subscription Failed", {
-        description: detail || message,
+      setGeohash("")
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred."
+      toast.error("Failed to subscribe", {
+        description: errorMessage,
       })
     } finally {
       setIsSubmitting(false)
@@ -95,38 +101,37 @@ export function LocationSubscriber({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      {selectedLat !== null && selectedLon !== null ? (
-        <p className="text-sm text-muted-foreground">
-          Selected: {selectedLat.toFixed(4)}, {selectedLon.toFixed(4)}
-        </p>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Select a location on the map to subscribe.
-        </p>
-      )}
-
-      {pendingGeohash && (
-        <div className="mb-2 animate-pulse rounded bg-muted p-2 text-xs">
-          Waiting for risk analysis...
-        </div>
-      )}
-
-      <Button
-        onClick={handleSubscribe}
-        disabled={
-          isSubmitting ||
-          !!pendingGeohash ||
-          selectedLat === null ||
-          selectedLon === null
-        }
-      >
-        {isSubmitting
-          ? "Subscribing..."
-          : pendingGeohash
-            ? "Analyzing..."
-            : "Subscribe to Alerts"}
-      </Button>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Subscribe to a Location</CardTitle>
+        <CardDescription>
+          Enter a Geohash to receive real-time fire risk alerts for that area.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubscribe} className="flex space-x-2">
+          <Input
+            type="text"
+            placeholder="e.g. u4pru"
+            value={geohash}
+            onChange={(e) => setGeohash(e.target.value)}
+            disabled={isSubmitting || pendingGeohash !== null}
+            required
+            className="font-mono lowercase"
+          />
+          <Button
+            type="submit"
+            disabled={isSubmitting || pendingGeohash !== null}
+          >
+            {isSubmitting || pendingGeohash ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <MapPin className="mr-2 h-4 w-4" />
+            )}
+            {pendingGeohash ? "Calculating..." : "Subscribe"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

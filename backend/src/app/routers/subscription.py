@@ -65,13 +65,24 @@ async def delete_subscription(
 
 @router.get("/{geohash}/stream")
 async def stream_subscription_updates(
-    geohash: str, user: dict = Depends(get_current_user_ws_or_sse)
+    geohash: str,
+    user: dict = Depends(get_current_user_ws_or_sse),
 ) -> StreamingResponse:
     """
     Streams fire risk updates for a specific geohash via Server-Sent Events.
     """
 
     async def event_generator():
+        # Send the most recent known value first to avoid race conditions where
+        # a publish happens before the client subscribes to Redis pubsub.
+        cached = await redis_client.get(f"location_updates:last:{geohash}")
+        if isinstance(cached, bytes):
+            yield f"data: {cached.decode('utf-8')}\n\n"
+            return
+        if isinstance(cached, str):
+            yield f"data: {cached}\n\n"
+            return
+
         pubsub = redis_client.pubsub()
         channel_name = f"location_updates:{geohash}"
         await pubsub.subscribe(channel_name)

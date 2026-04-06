@@ -13,6 +13,7 @@ import { useZones } from "@/hooks/use-zones"
 import { useMemo } from "react"
 import Geohash from "latlon-geohash"
 import type { MapFeature } from "@/types/map"
+import { AnalyticsWidget } from "@/components/AnalyticsWidget"
 import { HistoryWidget } from "@/components/HistoryWidget"
 import { RiskLegendWidget } from "@/components/RiskLegendWidget"
 
@@ -82,6 +83,10 @@ export default function HomePage({
           </div>
         </CardContent>
       </Card>
+
+      <div className="mt-8">
+        <AnalyticsWidget />
+      </div>
 
       <HistoryWidget />
 

@@ -1,22 +1,96 @@
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.background import redis_listener_task
 from app.db.database import create_db_and_tables
 from app.routers import history_router, risk_router, subscription, zones
+from app.services.event_processor_service import backfill_thingspeak_last_24h
+from app.services.mqtt_service import mqtt_client
+from config import settings
+
+logging.basicConfig(
+    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize resources (e.g., ML models, DB connections)
+    # Startup: Initialize resources
     print("FireGuard API starting up...")
     # Ensure all tables (like user_subscriptions) exist
     await create_db_and_tables()
+
+    # Connect to MQTT broker
+    await mqtt_client.connect_async()
+
+    # Start the Redis listener as a background task
+    redis_task = asyncio.create_task(redis_listener_task())
+
+    # Backfill last 24h analytics once on startup so ThingSpeak graphs have history.
+    thingspeak_backfill_task = None
+    if settings.THINGSPEAK_BACKFILL_ON_STARTUP:
+        thingspeak_backfill_task = asyncio.create_task(backfill_thingspeak_last_24h())
+
+    # Start MQTT test task if enabled
+    mqtt_test_task = None
+    if settings.MQTT_TEST_MODE:
+        print("MQTT Test Mode enabled - starting 30s interval push...")
+        from app.services.mqtt_test_service import mqtt_test_push_task
+
+        mqtt_test_task = asyncio.create_task(mqtt_test_push_task())
+
+    # Start ThingSpeak test task if enabled
+    thingspeak_test_task = None
+    if settings.THINGSPEAK_TEST_MODE:
+        print("ThingSpeak Test Mode enabled - starting 1min interval push...")
+        from app.services.thingspeak_test_service import thingspeak_test_push_task
+
+        thingspeak_test_task = asyncio.create_task(thingspeak_test_push_task())
+
     yield
+
     # Shutdown: Clean up resources
     print("FireGuard API shutting down...")
+
+    # Stop the Redis listener task
+    redis_task.cancel()
+    try:
+        await redis_task
+    except asyncio.CancelledError:
+        print("Redis listener task successfully cancelled.")
+
+    # Stop MQTT test task if it was started
+    if mqtt_test_task:
+        mqtt_test_task.cancel()
+        try:
+            await mqtt_test_task
+        except asyncio.CancelledError:
+            print("MQTT test task successfully cancelled.")
+
+    # Stop ThingSpeak test task if it was started
+    if thingspeak_test_task:
+        thingspeak_test_task.cancel()
+        try:
+            await thingspeak_test_task
+        except asyncio.CancelledError:
+            print("ThingSpeak test task successfully cancelled.")
+
+    # Stop backfill task if it is still running.
+    if thingspeak_backfill_task and not thingspeak_backfill_task.done():
+        thingspeak_backfill_task.cancel()
+        try:
+            await thingspeak_backfill_task
+        except asyncio.CancelledError:
+            print("ThingSpeak backfill task successfully cancelled.")
+
+    # Disconnect from MQTT
+    mqtt_client.stop()
 
 
 def create_app() -> FastAPI:
@@ -31,7 +105,6 @@ def create_app() -> FastAPI:
     )
 
     # Get allowed origins from env, defaulting to development settings
-    # In docker-compose, we can pass "http://<YOUR_IP>" or "*"
     origins_str = os.getenv(
         "BACKEND_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     )
