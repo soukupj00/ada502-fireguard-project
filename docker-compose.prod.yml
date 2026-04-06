@@ -67,8 +67,6 @@ services:
         condition: service_started
       hivemq:
         condition: service_started
-    env_file:
-      - ./.env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://fireuser:firepassword@db:5432/fireguard_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -91,8 +89,6 @@ services:
     depends_on:
       - db
       - redis
-    env_file:
-      - ./.env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://fireuser:firepassword@db:5432/fireguard_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -111,8 +107,8 @@ services:
         VITE_MQTT_BROKER_URL: ${VITE_MQTT_BROKER_URL:-wss://your-domain.com/mqtt}
         VITE_MQTT_USERNAME: ${VITE_MQTT_USERNAME:-fireguard_backend}
         VITE_MQTT_PASSWORD: ${VITE_MQTT_PASSWORD:-}
-        VITE_THINGSPEAK_CHANNEL_ID: ${VITE_THINGSPEAK_CHANNEL_ID}
-        VITE_THINGSPEAK_READ_API_KEY: ${VITE_THINGSPEAK_READ_API_KEY}
+        VITE_THINGSPEAK_CHANNEL_ID: ${VITE_THINGSPEAK_CHANNEL_ID:-}
+        VITE_THINGSPEAK_READ_API_KEY: ${VITE_THINGSPEAK_READ_API_KEY:-}
     restart: always
     ports:
       - "80:80"  # This is the ONLY port exposed to the internet
