@@ -93,6 +93,12 @@ export function ThemeProvider({
     (nextTheme: Theme) => {
       localStorage.setItem(storageKey, nextTheme)
       setThemeState(nextTheme)
+      // Immediately apply the theme to avoid state desync
+      const root = document.documentElement
+      const resolvedTheme =
+        nextTheme === "system" ? getSystemTheme() : nextTheme
+      root.classList.remove("light", "dark")
+      root.classList.add(resolvedTheme)
     },
     [storageKey]
   )
