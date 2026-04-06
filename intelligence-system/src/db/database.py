@@ -9,6 +9,7 @@ from sqlalchemy import (
     String,
     func,
     select,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import (
@@ -19,6 +20,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from config import settings
+from db.analytics_targets import sync_analytics_target_flags
 from utils.fire_risk_service import calculate_risk_score
 from utils.grid_utils import generate_initial_zones
 
@@ -111,8 +113,15 @@ async def create_db_and_tables() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Add missing columns for backward compatibility
-        from sqlalchemy import text
-
+        await conn.execute(
+            text(
+                """
+                ALTER TABLE monitored_zones
+                ADD COLUMN IF NOT EXISTS is_analytics_target
+                BOOLEAN NOT NULL DEFAULT FALSE
+                """
+            )
+        )
         await conn.execute(
             text(
                 """
@@ -130,6 +139,9 @@ async def create_db_and_tables() -> None:
             )
         )
 
+    async with AsyncSessionLocal() as db:
+        await sync_analytics_target_flags(db)
+
 
 async def seed_initial_zones() -> None:
     """
@@ -143,6 +155,9 @@ async def seed_initial_zones() -> None:
                 zone = MonitoredZone(**zone_data)
                 db.add(zone)
             await db.commit()
+
+    async with AsyncSessionLocal() as db:
+        await sync_analytics_target_flags(db)
 
 
 async def get_monitored_zones() -> Sequence[Any]:
