@@ -14,11 +14,11 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { Button } from "@/components/ui/button"
+import { Check } from "lucide-react"
 import { useThingspeakData } from "@/hooks/use-thingspeak-data"
 
 // Line style patterns for visual distinction
@@ -32,6 +32,31 @@ const LINE_STYLES = [
   { dasharray: "10 2", width: 2 }, // Long dash short gap
   { dasharray: undefined, width: 3 }, // Thick solid (National Average)
 ]
+
+// Base chart colors (matching Tailwind theme)
+// Updated: Stavanger color changed to be more distinct from Trondheim
+const CHART_COLORS = [
+  "hsl(12, 76%, 61%)", // field1: orange
+  "hsl(173, 58%, 39%)", // field2: teal
+  "hsl(197, 100%, 53%)", // field3: blue
+  "hsl(142, 100%, 37%)", // field4: green (changed from light blue for Stavanger distinction)
+  "hsl(280, 85%, 65%)", // field5: purple
+  "hsl(330, 100%, 71%)", // field6: pink
+  "hsl(41, 100%, 48%)", // field7: amber
+  "hsl(0, 0%, 50%)", // field8: gray
+]
+
+// City name mapping for display
+const FIELD_CITY_NAMES: Record<string, string> = {
+  field1: "Oslo",
+  field2: "Bergen",
+  field3: "Trondheim",
+  field4: "Stavanger",
+  field5: "Kristiansand",
+  field6: "Tromsø",
+  field7: "Ålesund",
+  field8: "National Average",
+}
 
 export function AnalyticsWidget() {
   const { data, isLoading, isError } = useThingspeakData(24) // Fetch last 24 results
@@ -57,7 +82,7 @@ export function AnalyticsWidget() {
     fields.forEach((field, index) => {
       if (field.label) {
         config[field.key] = {
-          label: field.label,
+          label: FIELD_CITY_NAMES[field.key] || field.label,
           color: `hsl(var(--chart-${(index % 8) + 1}))`, // Use all 8 chart colors
         }
       }
@@ -188,17 +213,42 @@ export function AnalyticsWidget() {
             See All
           </Button>
 
-          {Object.entries(chartConfig).map(([fieldKey, config]) => (
-            <Button
-              key={fieldKey}
-              variant={selectedFields.has(fieldKey) ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleFieldToggle(fieldKey)}
-              className="cursor-pointer"
-            >
-              {config.label}
-            </Button>
-          ))}
+          {Object.entries(chartConfig).map(([fieldKey, config], index) => {
+            const isSelected = selectedFields.has(fieldKey)
+            const color = CHART_COLORS[index % CHART_COLORS.length]
+            return (
+              <Button
+                key={fieldKey}
+                size="sm"
+                onClick={() => handleFieldToggle(fieldKey)}
+                className={`cursor-pointer border-2 transition-all ${
+                  isSelected ? `ring-2 ring-offset-1` : ""
+                }`}
+                style={
+                  isSelected
+                    ? {
+                        borderColor: color,
+                        backgroundColor: "transparent",
+                        outlineColor: color,
+                        boxShadow: `0 0 0 2px ${color}`,
+                      }
+                    : {
+                        borderColor: color,
+                      }
+                }
+                variant="outline"
+              >
+                <span
+                  className="mr-2 inline-block h-3 w-3 shrink-0 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                {config.label}
+                {isSelected && (
+                  <Check className="ml-2 h-4 w-4 shrink-0" style={{ color }} />
+                )}
+              </Button>
+            )
+          })}
         </div>
 
         {chartData.length > 0 ? (
@@ -207,7 +257,7 @@ export function AnalyticsWidget() {
               accessibilityLayer
               data={chartData}
               margin={{
-                left: -20,
+                left: 40,
                 right: 12,
                 top: 12,
                 bottom: 12,
@@ -232,20 +282,68 @@ export function AnalyticsWidget() {
               {/* Dynamically render a Line for every active field */}
               {activeFields.map((fieldKey, index) => {
                 const lineStyle = LINE_STYLES[index % LINE_STYLES.length]
+                const color = CHART_COLORS[index % CHART_COLORS.length]
                 return (
                   <Line
                     key={fieldKey}
                     dataKey={fieldKey}
                     type="monotone"
-                    stroke={`var(--color-${fieldKey})`}
+                    stroke={color}
                     strokeWidth={lineStyle.width}
                     strokeDasharray={lineStyle.dasharray}
-                    dot={false}
+                    connectNulls={true}
+                    dot={{
+                      fill: color,
+                      stroke: color,
+                      r: 4,
+                      strokeWidth: 1,
+                    }}
+                    activeDot={{
+                      r: 6,
+                      stroke: color,
+                      strokeWidth: 2,
+                    }}
+                    label={{
+                      position: "top",
+                      offset: 8,
+                      fill: color,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      formatter: (value) =>
+                        typeof value === "number" ? value.toFixed(1) : value,
+                    }}
+                    isAnimationActive={false}
                   />
                 )
               })}
 
-              <ChartLegend content={<ChartLegendContent />} />
+              {/* Custom legend with field names and colors */}
+              <ChartLegend
+                content={({ payload }) => {
+                  if (!payload) return null
+                  return (
+                    <div className="flex flex-wrap justify-center gap-4 pt-4 text-sm">
+                      {payload.map((entry, index) => {
+                        const fieldKey = entry.dataKey as string
+                        const cityName =
+                          FIELD_CITY_NAMES[fieldKey] || entry.value
+                        return (
+                          <div
+                            key={`legend-${index}`}
+                            className="flex items-center gap-2"
+                          >
+                            <div
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: entry.color }}
+                            />
+                            <span>{cityName}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                }}
+              />
             </LineChart>
           </ChartContainer>
         ) : (
