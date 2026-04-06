@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
 import {
@@ -18,10 +18,24 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { Button } from "@/components/ui/button"
 import { useThingspeakData } from "@/hooks/use-thingspeak-data"
+
+// Line style patterns for visual distinction
+const LINE_STYLES = [
+  { dasharray: undefined, width: 2 }, // Solid
+  { dasharray: "5 5", width: 2 }, // Dashed
+  { dasharray: "2 4", width: 2 }, // Dotted
+  { dasharray: "8 4", width: 2 }, // Long dash
+  { dasharray: "5 2 2 2", width: 2 }, // Dash-dot
+  { dasharray: "3 3 1 3", width: 2 }, // Dot-dash-dot
+  { dasharray: "10 2", width: 2 }, // Long dash short gap
+  { dasharray: undefined, width: 3 }, // Thick solid (National Average)
+]
 
 export function AnalyticsWidget() {
   const { data, isLoading, isError } = useThingspeakData(24) // Fetch last 24 results
+  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set()) // Track selected fields
 
   // Dynamically build the chart configuration based on ThingSpeak channel metadata
   const chartConfig = useMemo(() => {
@@ -44,7 +58,7 @@ export function AnalyticsWidget() {
       if (field.label) {
         config[field.key] = {
           label: field.label,
-          color: `hsl(var(--chart-${(index % 5) + 1}))`, // Cycle through 5 standard chart colors
+          color: `hsl(var(--chart-${(index % 8) + 1}))`, // Use all 8 chart colors
         }
       }
     })
@@ -79,6 +93,62 @@ export function AnalyticsWidget() {
     })
   }, [data])
 
+  // Calculate dynamic Y-axis domain with padding
+  const yAxisDomain = useMemo(() => {
+    if (chartData.length === 0) return [0, 100]
+
+    // Get fields to display (all if none selected, else selected)
+    const fieldsToCheck =
+      selectedFields.size === 0
+        ? Object.keys(chartConfig)
+        : Array.from(selectedFields)
+
+    // Find min and max values across visible data
+    let minValue = Infinity
+    let maxValue = -Infinity
+
+    chartData.forEach((dataPoint) => {
+      fieldsToCheck.forEach((fieldKey) => {
+        const val = dataPoint[fieldKey]
+        if (typeof val === "number" && !isNaN(val)) {
+          minValue = Math.min(minValue, val)
+          maxValue = Math.max(maxValue, val)
+        }
+      })
+    })
+
+    if (minValue === Infinity || maxValue === -Infinity) {
+      return [0, 100]
+    }
+
+    // Add padding: 10% of the range on each side
+    const range = maxValue - minValue
+    const padding = range * 0.1
+    const min = Math.max(0, Math.floor((minValue - padding) * 2) / 2) // Round down to nearest 0.5
+    const max = Math.ceil((maxValue + padding) * 2) / 2 // Round up to nearest 0.5
+
+    return [min, max]
+  }, [chartData, chartConfig, selectedFields])
+
+  // Determine which fields to display
+  const activeFields =
+    selectedFields.size === 0
+      ? Object.keys(chartConfig)
+      : Array.from(selectedFields)
+
+  // Handle field button click
+  const handleFieldToggle = (fieldKey: string) => {
+    const newSelected = new Set(selectedFields)
+
+    if (newSelected.has(fieldKey)) {
+      newSelected.delete(fieldKey)
+    } else {
+      newSelected.add(fieldKey)
+    }
+
+    setSelectedFields(newSelected)
+  }
+
   if (isError) {
     return (
       <Card>
@@ -92,9 +162,6 @@ export function AnalyticsWidget() {
       </Card>
     )
   }
-
-  // Get the keys of the active fields to render the lines
-  const activeFields = Object.keys(chartConfig)
 
   return (
     <Card className="h-full">
@@ -110,6 +177,30 @@ export function AnalyticsWidget() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* City/Region Toggle Buttons */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          <Button
+            variant={selectedFields.size === 0 ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedFields(new Set())}
+            className="cursor-pointer"
+          >
+            See All
+          </Button>
+
+          {Object.entries(chartConfig).map(([fieldKey, config]) => (
+            <Button
+              key={fieldKey}
+              variant={selectedFields.has(fieldKey) ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleFieldToggle(fieldKey)}
+              className="cursor-pointer"
+            >
+              {config.label}
+            </Button>
+          ))}
+        </div>
+
         {chartData.length > 0 ? (
           <ChartContainer config={chartConfig} className="min-h-100 w-full">
             <LineChart
@@ -134,23 +225,25 @@ export function AnalyticsWidget() {
                 axisLine={false}
                 tickMargin={8}
                 fontSize={12}
-                domain={[0, "dataMax + 10"]} // Add some padding to the top of the graph
+                domain={yAxisDomain}
               />
               <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
 
               {/* Dynamically render a Line for every active field */}
-              {activeFields.map((fieldKey) => (
-                <Line
-                  key={fieldKey}
-                  dataKey={fieldKey}
-                  type="monotone"
-                  stroke={`var(--color-${fieldKey})`}
-                  strokeWidth={fieldKey === "field8" ? 3 : 2} // Make National Average (field8) thicker
-                  dot={false}
-                  // Make standard cities slightly dashed, and National average solid, or vice versa if you prefer
-                  strokeDasharray={fieldKey !== "field8" ? "4 4" : undefined}
-                />
-              ))}
+              {activeFields.map((fieldKey, index) => {
+                const lineStyle = LINE_STYLES[index % LINE_STYLES.length]
+                return (
+                  <Line
+                    key={fieldKey}
+                    dataKey={fieldKey}
+                    type="monotone"
+                    stroke={`var(--color-${fieldKey})`}
+                    strokeWidth={lineStyle.width}
+                    strokeDasharray={lineStyle.dasharray}
+                    dot={false}
+                  />
+                )
+              })}
 
               <ChartLegend content={<ChartLegendContent />} />
             </LineChart>
