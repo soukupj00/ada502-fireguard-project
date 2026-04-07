@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: intelligence
+  name: intelligence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: intelligence
+  template:
+    metadata:
+      labels:
+        io.kompose.service: intelligence
+    spec:
+      hostAliases:
+        - ip: "192.168.49.2"
+          hostnames:
+            - "fireguard.local"
+      containers:
+        - name: intelligence
+          image: ada502-fireguard-project-intelligence:latest
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: fireguard-secrets
+      restartPolicy: Always

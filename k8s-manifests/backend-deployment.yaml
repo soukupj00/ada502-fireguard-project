@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: backend
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: backend
+  template:
+    metadata:
+      labels:
+        io.kompose.service: backend
+    spec:
+      hostAliases:
+        - ip: "192.168.49.2"
+          hostnames:
+            - "fireguard.local"
+      containers:
+        - name: backend
+          image: ada502-fireguard-project-backend:latest
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: fireguard-secrets
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+      restartPolicy: Always

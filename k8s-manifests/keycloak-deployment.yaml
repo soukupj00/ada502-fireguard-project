@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: keycloak
+  name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: keycloak
+  template:
+    metadata:
+      labels:
+        io.kompose.service: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:latest
+          imagePullPolicy: IfNotPresent # This pulls from the public internet if not cached
+          args:
+            - start-dev
+          envFrom:
+            - secretRef:
+                name: fireguard-secrets
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+      restartPolicy: Always
