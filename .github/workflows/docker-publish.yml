@@ -40,5 +40,5 @@ jobs:
 
       - name: Build and push Intelligence
         run: |
-          docker build -t $IMAGE_PREFIX-intelligence:latest ./intelligence
+          docker build -t $IMAGE_PREFIX-intelligence:latest ./intelligence-system
           docker push $IMAGE_PREFIX-intelligence:latest
