@@ -1,172 +1,259 @@
-# ADA502 FireGuard Project - Your Fireguard
+# FireGuard
 
-FireGuard is a fire risk calculation system designed to monitor, compute, and visualize fire risks based on weather data. The system operates as a monorepo containing three distinct services: a Backend API, a Frontend User Interface, and an Intelligence System for background data processing.
+FireGuard is a fire-risk monitoring and analytics system. It calculates fire risk from weather data, stores hourly readings, exposes a REST API for clients, and distributes alerts/analytics through MQTT and ThingSpeak.
 
-## Architecture Overview
+## What this repository contains
 
-The system follows a microservices architecture:
+- **Frontend**: a React + Vite web app for browsing fire risk data and subscriptions.
+- **Backend**: a FastAPI REST API with HATEOAS links and authentication-aware endpoints.
+- **Intelligence System**: a background worker that fetches MET Norway data, calculates fire risk, and writes results to the database.
+- **PostgreSQL**: shared persistence for current and historical readings.
+- **Redis**: event bus and SSE/MQTT orchestration channel.
+- **Keycloak**: authentication and authorization.
+- **HiveMQ**: MQTT broker used for fire alert delivery.
+- **ThingSpeak**: analytics channel used to visualize city and national fire-risk trends.
 
-1.  **Frontend (React + Vite):** A web interface for users to view fire risk data.
-2.  **Backend (FastAPI):** A REST API that serves data to the frontend and manages user requests.
-3.  **Intelligence System (Python Worker):** A background service that periodically fetches weather data from MET.no, computes Fire Risk Indices (FRCM), and updates the database.
-4.  **Database (PostgreSQL):** A shared database used by the Backend (Reader) and Intelligence System (Writer).
-5.  **Keycloak:** An identity and access management solution for user authentication.
-6.  **Redis:** An in-memory data store used for caching and message broking.
+## Architecture overview
 
-## Project Structure
+The runtime flow is:
 
-* **backend/**: Contains the FastAPI application code, database models, and API routers.
-* **frontend/**: Contains the React application source code and Nginx configuration.
-* **intelligence-system/**: Contains the background worker logic and the Fire Risk Calculation Model (FRCM).
-* **.github/workflows/ci.yml**: GitHub Actions configuration for CI/CD.
-* **.pre-commit-config.yaml**: Pre-commit hooks configuration.
-* **docker-compose.yml**: Configuration for the local development environment.
-* **docker-compose.prod.yml**: Configuration for the production environment (NREC).
+1. The **Intelligence System** fetches weather data and calculates the fire risk score.
+2. The result is stored in PostgreSQL as the latest reading and historical rows.
+3. When the hourly calculation completes, the worker publishes a Redis event.
+4. The **Backend** listens for that Redis event and orchestrates downstream work.
+5. The backend publishes MQTT alerts to **HiveMQ** for subscribed users when risk levels are high enough.
+6. The backend also pushes analytics to **ThingSpeak** for:
+   - Oslo
+   - Bergen
+   - Trondheim
+   - Stavanger
+   - Kristiansand
+   - Tromsø
+   - Bodø
+   - National average
+7. The REST API remains the main entry point for the frontend, with HATEOAS links guiding navigation between related resources.
 
-## Prerequisites
+## REST API and HATEOAS
 
-To run this project, you need the following tools installed:
+The backend exposes versioned endpoints under `/api/v1/`.
+Common entry points include:
 
-* **Docker & Docker Compose** (Recommended for all environments)
-* **Python 3.12+** and **uv** (for local backend/intelligence development)
-* **Node.js 20+** (for local frontend development)
-* **pre-commit** (for code quality)
+- `GET /api/v1/` — API discovery document with HATEOAS links
+- `GET /api/v1/risk/coords?latitude=&longitude=` — latest risk by coordinates
+- `GET /api/v1/risk/{geohash}` — latest risk by geohash
+- `GET /api/v1/risk/{geohash}/history` — historical readings for a single location
+- `GET /api/v1/zones/` — GeoJSON for monitored zones
+- `GET /api/v1/zones/history` — historical readings for monitored zones
+- `GET /api/v1/history/` — historical readings collection endpoint
+- `POST /api/v1/users/me/subscriptions/` — create a subscription
+- `GET /api/v1/users/me/subscriptions/` — list subscriptions
+- `DELETE /api/v1/users/me/subscriptions/{geohash}` — remove a subscription
+- `GET /api/v1/users/me/subscriptions/{geohash}/stream` — SSE stream for subscription updates
 
-## Getting Started (Development)
+Most successful responses include `_links` so clients can navigate without hardcoding every path.
 
-The recommended way to run the project locally is using Docker Compose. This spins up the database, backend, frontend, and intelligence worker in a synchronized environment with hot-reloading enabled.
+## Project structure
 
-### 1. Using Docker Compose
+- `backend/` — FastAPI app, routers, services, database layer, and HATEOAS helpers
+- `frontend/` — browser UI
+- `intelligence-system/` — background worker and risk model pipeline
+- `docker-compose.yml` — local development stack
+- `docker-compose.prod.yml` — production deployment stack
+- `.github/workflows/ci.yml` — CI pipeline
 
-1.  Clone the repository:
-    ```bash
-    git clone git@github.com:soukupj00/ADA502-FireGuard-Project.git
-    cd ADA502-FireGuard-Project
-    ```
+## Running with Docker Compose
 
-2.  Start the services:
-    ```bash
-    docker compose up --build (optional -d for detached mode)
-    ```
+Docker Compose is the easiest way to run the full stack locally.
 
-3.  Access the application:
-    * **Frontend:** http://localhost:5173
-    * **Backend API Docs:** http://localhost:8000/api/docs
-    * **Keycloak Admin Console:** http://localhost:8080/auth/admin (User: `admin`, Password: `admin`)
-    * **Application Database:** localhost:5433 (User: `user`, Password: `password`)
-    * **Keycloak Database:** localhost:5434 (User: `keycloak_user`, Password: `keycloak_password`)
-    * **Redis:** localhost:6379
+### Prerequisites
 
-### 2. Manual Setup (Running Services Individually)
+- Docker
+- Docker Compose
 
-If you prefer to run services natively on your machine without Docker, follow these steps. Note that you must have a PostgreSQL database, Redis, and Keycloak running separately.
+### Start the development stack
 
-#### Backend
-1.  Navigate to `backend/`.
-2.  Install dependencies:
-    ```bash
-    uv sync
-    ```
-3.  Run the server:
-    ```bash
-    uv run fastapi dev src/app/main.py
-    ```
+From the repository root:
 
-#### Frontend
-1.  Navigate to `frontend/`.
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Run the development server:
-    ```bash
-    npm run dev
-    ```
+```bash
+docker compose up --build
+```
 
-#### Intelligence System
-1.  Navigate to `intelligence-system/`.
-2.  Install dependencies:
-    ```bash
-    uv sync
-    ```
-3.  Run the worker:
-    ```bash
-    uv run python src/main.py
-    ```
+Useful services in development usually include:
 
-## Testing, Linting and CI/CD
+- Frontend: `http://localhost:5173`
+- Backend docs: `http://localhost:8000/api/docs/`
+- Keycloak: `http://localhost:8080/auth`
+- Redis: `localhost:6379`
 
-The project enforces code quality through automated tests, linting, and pre-commit hooks. The CI/CD pipeline is configured using GitHub Actions and automatically runs on every push and pull request to the `main` branch.
+### Production compose
 
-### Pre-commit Hooks
+For the production setup, use the production compose file:
 
-This project uses `pre-commit` to automatically lint and format code before each commit. To set it up:
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
-1.  Install `pre-commit`:
-    ```bash
-    pip install pre-commit
-    ```
-2.  Install the hooks:
-    ```bash
-    pre-commit install
-    ```
+Production should typically keep the test modes disabled:
 
-Now, `ruff` (for Python) and `prettier`/`eslint` (for the frontend) will run automatically on staged files before you commit.
+```env
+MQTT_TEST_MODE=false
+THINGSPEAK_TEST_MODE=false
+THINGSPEAK_BACKFILL_ON_STARTUP=false
+```
 
-### CI/CD
+## Running locally without Docker
 
-The CI/CD pipeline is defined in `.github/workflows/ci.yml` and consists of three jobs:
+If you want to run individual services directly:
 
-1.  **Backend CI:** Lints, tests, and builds the backend Docker image.
-2.  **Intelligence System CI:** Lints, tests, and builds the intelligence system Docker image.
-3.  **Frontend CI:** Lints, type-checks, and builds the frontend application.
+### Backend
 
-## Deployment (NREC)
+```bash
+cd backend
+uv sync
+uv run fastapi dev src/app/main.py
+```
 
-The application is deployed on the NREC cloud platform using Docker Compose in production mode.
+### Frontend
 
-### Production Environment Differences
-* **Nginx Reverse Proxy:** The frontend container builds a static site served by Nginx. Nginx also proxies API requests (from `/api`) to the backend container, eliminating CORS issues.
-* **Database Persistence:** Data is stored in a Docker volume to persist across restarts.
-* **Security:** Production uses strict environment variables and does not expose internal ports (like 8000) to the public internet.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-### Deployment Workflow
-1.  SSH into the NREC instance:
-    ```bash
-    ssh ubuntu@158.37.63.48
-    ```
+### Intelligence system
 
-2.  Navigate to the project directory:
-    ```bash
-    cd ADA502-FireGuard-Project
-    ```
+```bash
+cd intelligence-system
+uv sync
+uv run python src/main.py
+```
 
-3.  Pull the latest changes:
-    ```bash
-    git pull origin main
-    ```
+## HiveMQ MQTT integration
 
-4.  Rebuild and restart the services:
-    ```bash
-    docker compose -f docker-compose.prod.yml up -d --build
-    ```
+The backend connects to HiveMQ as an MQTT client using the environment variables defined in `backend/src/config.py`.
 
-### Viewing Logs
-To monitor the services on the production server:
+Key settings:
 
-* **All services:**
-    ```bash
-    docker compose -f docker-compose.prod.yml logs -f
-    ```
-* **Specific service (e.g., Intelligence System):**
-    ```bash
-    docker compose -f docker-compose.prod.yml logs -f intelligence
-    ```
+- `HIVEMQ_HOST`
+- `HIVEMQ_PORT`
+- `HIVEMQ_USERNAME`
+- `HIVEMQ_PASSWORD`
+- `HIVEMQ_USE_TLS`
+- `HIVEMQ_CA_CERT`
+- `HIVEMQ_CLIENT_CERT`
+- `HIVEMQ_CLIENT_KEY`
+- `HIVEMQ_TLS_INSECURE`
+
+Behavior:
+
+- The backend subscribes to Redis events and publishes MQTT fire alerts when relevant.
+- Users receive alert updates only for their active subscriptions.
+- For testing, `MQTT_TEST_MODE=true` enables a faster alert loop.
+
+## ThingSpeak analytics integration
+
+ThingSpeak is used for fire-risk analytics dashboards.
+
+Channel mapping:
+
+- `field1` — Oslo
+- `field2` — Bergen
+- `field3` — Trondheim
+- `field4` — Stavanger
+- `field5` — Kristiansand
+- `field6` — Tromsø
+- `field7` — Bodø
+- `field8` — National average
+
+Relevant settings:
+
+- `THINGSPEAK_WRITE_API_KEY`
+- `THINGSPEAK_CHANNEL_ID`
+- `THINGSPEAK_BACKFILL_ON_STARTUP`
+- `THINGSPEAK_TEST_MODE`
+
+Notes:
+
+- The backend can push the latest analytics values after each hourly update.
+- A startup backfill can populate the channel with recent history if enabled.
+- For production, leave backfill disabled unless you explicitly want to seed historical points.
+
+## Kubernetes setup
+
+FireGuard can also be deployed on Kubernetes, for example with Minikube locally or a managed cluster in production.
+
+### What you need
+
+- Kubernetes cluster
+- `kubectl`
+- An ingress controller if you want browser access through a hostname
+- Container images for the backend, frontend, and intelligence system
+
+### Typical setup flow
+
+1. Create Kubernetes secrets/config from your environment variables.
+2. Build or publish the service images.
+3. Deploy the database, Redis, Keycloak, backend, frontend, intelligence system, and broker dependencies.
+4. Configure ingress so the browser can reach the frontend and API.
+5. Point the application to cluster-internal service names for PostgreSQL, Redis, and other internal services.
+
+### Example Minikube workflow
+
+```bash
+minikube start --driver=docker
+minikube addons enable ingress
+kubectl create secret generic fireguard-secrets --from-env-file=.env
+eval $(minikube -p minikube docker-env)
+docker compose build backend frontend intelligence
+kubectl apply -f <your-k8s-manifests-directory>
+minikube tunnel
+```
+
+If you use Kubernetes, make sure the environment variables for internal routing point to cluster service DNS names rather than `localhost`.
+
+## Configuration
+
+The backend reads configuration from environment variables or `.env`.
+
+Common settings include:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- `BACKEND_CORS_ORIGINS`
+- `HIVEMQ_*`
+- `THINGSPEAK_*`
+- `MQTT_TEST_MODE`
+- `THINGSPEAK_TEST_MODE`
+
+In production, the usual defaults are:
+
+- `MQTT_TEST_MODE=false`
+- `THINGSPEAK_TEST_MODE=false`
+- `THINGSPEAK_BACKFILL_ON_STARTUP=false`
+
+## Development and testing notes
+
+- `MQTT_TEST_MODE` enables a short interval MQTT push loop for testing alert delivery.
+- `THINGSPEAK_TEST_MODE` enables a short interval ThingSpeak push loop for graph validation.
+- `THINGSPEAK_BACKFILL_ON_STARTUP` controls whether the backend seeds historical ThingSpeak data when it starts.
+
+## Testing and CI
+
+The repository uses automated tests and CI for the backend, frontend, and intelligence system.
+
+Pre-commit hooks can be installed with:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+The CI workflow is defined in `.github/workflows/ci.yml`.
 
 ## Troubleshooting
 
-**Port Conflicts:**
-If you cannot start the containers, ensure ports `5432` (Postgres), `8000` (Backend), or `5173` (Frontend) are not being used by other applications on your machine.
-
-**Database Connection Errors:**
-Ensure the `DATABASE_URL` environment variable matches the credentials defined in the `docker-compose.yml` file. In development, the hostname is `localhost` (if running locally) or `db` (if running inside Docker).
+- If the API starts but MQTT alerts do not appear, confirm the backend can reach HiveMQ and that the username/password are correct.
+- If ThingSpeak receives no points, check `THINGSPEAK_WRITE_API_KEY`, `THINGSPEAK_CHANNEL_ID`, and the test/backfill flags.
+- If Redis-driven SSE updates do not appear, verify that the backend and intelligence system share the same Redis instance and that the hourly event is being published.
+- If Kubernetes traffic fails, check the ingress host, secret values, and service DNS names.

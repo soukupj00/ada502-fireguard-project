@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f ../docker-compose.yml
+    kompose.version: 1.34.0 (cbf2835db)
+  labels:
+    io.kompose.service: hivemq
+  name: hivemq
+spec:
+  ports:
+    - name: "1883"
+      port: 1883
+      targetPort: 1883
+    - name: "8081"
+      port: 8081
+      targetPort: 8000
+  selector:
+    io.kompose.service: hivemq

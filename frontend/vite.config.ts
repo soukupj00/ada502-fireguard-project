@@ -10,6 +10,7 @@ export default defineConfig({
     host: true, // Listen on all addresses
     strictPort: true,
     port: 5173,
+    allowedHosts: ["fireguard.local"],
     watch: {
       usePolling: true,
     },

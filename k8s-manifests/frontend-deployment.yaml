@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: frontend
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: frontend
+  template:
+    metadata:
+      labels:
+        io.kompose.service: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ada502-fireguard-project-frontend:latest
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: fireguard-secrets
+          ports:
+            - containerPort: 5173
+              protocol: TCP
+      restartPolicy: Always
