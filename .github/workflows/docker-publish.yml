@@ -3,6 +3,7 @@ name: Build and Publish Docker Images
 on:
   push:
     branches: [ "main" ] # Runs every time we push to main
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
 
 env:
   REGISTRY: ghcr.io
