@@ -7,15 +7,6 @@
  * @module hooks/use-mqtt-alerts
  */
 
-/**
- * React hook for receiving real-time fire risk alerts via MQTT.
- *
- * Connects to HiveMQ broker and subscribes to alert topics for user's monitored zones.
- * Displays toast notifications when fire risk alerts are published.
- *
- * @module hooks/use-mqtt-alerts
- */
-
 import { useEffect, useRef } from "react"
 import mqtt from "mqtt"
 import { toast } from "sonner"
