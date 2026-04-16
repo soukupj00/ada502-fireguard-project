@@ -47,7 +47,7 @@ export default function DashboardPage() {
     isError: isRegionalError,
   } = useZones(true)
   const {
-    subscriptions,
+    geohashes: subscribedGeohashes,
     isLoading: isSubsLoading,
     isError: isSubsError,
   } = useSubscriptions()
@@ -80,24 +80,20 @@ export default function DashboardPage() {
       })
     }
 
-    if (subscriptions?.features) {
-      subscriptions.features.forEach((feature) => {
-        const { geohash, risk_score, name, risk_category } = feature.properties
-        if (!geohash) return
-
+    if (subscribedGeohashes?.length) {
+      subscribedGeohashes.forEach((geohash) => {
         try {
           const bounds = Geohash.bounds(geohash)
-          const score = risk_score !== null ? risk_score : 0
 
           combinedFeatures.push({
             id: `sub-${geohash}`,
-            name: name || `User Subscription ${geohash}`,
+            name: `User Subscription ${geohash}`,
             bounds: [
               [bounds.sw.lat, bounds.sw.lon],
               [bounds.ne.lat, bounds.ne.lon],
             ],
-            riskScore: score,
-            riskCategory: risk_category ?? "N/A",
+            riskScore: 0,
+            riskCategory: "N/A",
             isRegional: false,
           })
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -108,7 +104,7 @@ export default function DashboardPage() {
     }
 
     return combinedFeatures
-  }, [regionalZones, subscriptions])
+  }, [regionalZones, subscribedGeohashes])
 
   // Activate MQTT alerts based on the user's subscriptions
   useMqttAlerts(mapFeatures.filter((f) => !f.isRegional))

@@ -1,5 +1,5 @@
-import axios from "axios"
 import keycloak from "../keycloak"
+import { API_URL } from "./env"
 import type {
   GeoJSONResponse,
   SubscriptionRequest,
@@ -7,43 +7,100 @@ import type {
   FireRiskReading,
 } from "./types"
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
 const API_VERSION = "/api/v1"
+const API_BASE_URL = API_URL.replace(/\/$/, "")
 
-export const apiClient = axios.create({
-  baseURL: `${API_BASE_URL}${API_VERSION}`,
-  // Add this line to ensure credentials/cookies are passed if needed by backend CORS
-  withCredentials: true,
-})
+const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value)
 
-apiClient.interceptors.request.use(
-  async (config) => {
-    if (keycloak.authenticated) {
-      try {
-        await keycloak.updateToken(30)
-        config.headers.Authorization = `Bearer ${keycloak.token}`
-      } catch (error) {
-        console.error("Failed to refresh token", error)
-        keycloak.login()
-      }
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
+const normalizeEndpoint = (endpoint: string) => {
+  if (isAbsoluteUrl(endpoint)) {
+    return endpoint
   }
-)
+
+  const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+  return path.startsWith(API_VERSION) ? path : `${API_VERSION}${path}`
+}
+
+export const buildApiUrl = (endpoint: string) => {
+  if (isAbsoluteUrl(endpoint)) {
+    return endpoint
+  }
+
+  return `${API_BASE_URL}${normalizeEndpoint(endpoint)}`
+}
+
+const getErrorMessage = async (response: Response) => {
+  const fallback = `HTTP error! status: ${response.status}`
+
+  try {
+    const text = await response.text()
+    if (!text) return fallback
+
+    const payload = JSON.parse(text) as
+      | { detail?: string; message?: string }
+      | string
+
+    if (typeof payload === "string") {
+      return payload
+    }
+
+    return payload.detail ?? payload.message ?? text ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+export const fetchWithAuth = async (
+  endpoint: string,
+  options: RequestInit = {}
+) => {
+  const headers = new Headers(options.headers)
+
+  if (keycloak.authenticated) {
+    try {
+      await keycloak.updateToken(30)
+      headers.set("Authorization", `Bearer ${keycloak.token}`)
+    } catch (error) {
+      console.error("Failed to refresh token", error)
+      await keycloak.login()
+      throw new Error("Authentication required")
+    }
+  }
+
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers,
+    credentials: options.credentials ?? "include",
+  }
+
+  const url = buildApiUrl(endpoint)
+
+  const response = await fetch(url, fetchOptions)
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response))
+  }
+
+  return response
+}
+
+export const fetchJson = async <T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  const response = await fetchWithAuth(endpoint, options)
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  return response.json() as Promise<T>
+}
 
 export async function fetchZones(
   regionalOnly: boolean = true
 ): Promise<GeoJSONResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}${API_VERSION}/zones/?regional_only=${regionalOnly}`
-  )
-  if (!response.ok) {
-    throw new Error("Failed to fetch zones")
-  }
-  return response.json()
+  return fetchJson<GeoJSONResponse>(`/zones/?regional_only=${regionalOnly}`)
 }
 
 export const fetchHistory = async (
@@ -56,18 +113,12 @@ export const fetchHistory = async (
   if (endDate) params.append("end_date", endDate)
   if (geohashes) params.append("geohashes", geohashes)
 
-  const response = await fetch(
-    `${API_BASE_URL}${API_VERSION}/history/?${params.toString()}`
-  )
-  if (!response.ok) {
-    throw new Error("Failed to fetch history")
-  }
-  return response.json()
+  const query = params.toString()
+  return fetchJson<FireRiskReading[]>(`/history/${query ? `?${query}` : ""}`)
 }
 
-export const fetchSecureData = async (endpoint: string) => {
-  const response = await apiClient.get(endpoint)
-  return response.data
+export const fetchSecureData = async <T>(endpoint: string) => {
+  return fetchJson<T>(endpoint)
 }
 
 export const subscribeToLocation = async (
@@ -75,10 +126,21 @@ export const subscribeToLocation = async (
 ): Promise<SubscriptionResponse> => {
   const requestBody =
     typeof payload === "string" ? { geohash: payload } : payload
-  const response = await apiClient.post("/users/me/subscriptions/", requestBody)
-  return response.data
+
+  return fetchJson<SubscriptionResponse>("/users/me/subscriptions/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+  })
 }
 
 export const deleteSubscription = async (geohash: string): Promise<void> => {
-  await apiClient.delete(`/users/me/subscriptions/${geohash}`)
+  await fetchWithAuth(
+    `/users/me/subscriptions/${encodeURIComponent(geohash)}/`,
+    {
+      method: "DELETE",
+    }
+  )
 }
