@@ -16,26 +16,10 @@ spec:
       labels:
         io.kompose.service: hivemq
     spec:
-      initContainers:
-        - name: fix-permissions
-          image: busybox
-          command: ["sh", "-c", "chown -R 10000:10000 /opt/hivemq/data"]
-          volumeMounts:
-            - name: hivemq-data-dev
-              mountPath: /opt/hivemq/data
       containers:
         - name: hivemq
           image: hivemq/hivemq-ce:latest
           imagePullPolicy: IfNotPresent
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-              ephemeral-storage: "128Mi"
-            limits:
-              memory: "1Gi"
-              cpu: "1000m"
-              ephemeral-storage: "512Mi"
           ports:
             - containerPort: 1883
               protocol: TCP

@@ -20,23 +20,9 @@ spec:
           imagePullPolicy: IfNotPresent # This pulls from the public internet if not cached
           args:
             - start-dev
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-              ephemeral-storage: "256Mi"
-            limits:
-              memory: "1Gi"
-              cpu: "1000m"
-              ephemeral-storage: "1Gi"
           envFrom:
             - secretRef:
                 name: fireguard-secrets
-          env:
-            - name: KC_HTTP_RELATIVE_PATH
-              value: "/auth"
-            - name: KC_PROXY
-              value: "edge"
           ports:
             - containerPort: 8080
               protocol: TCP

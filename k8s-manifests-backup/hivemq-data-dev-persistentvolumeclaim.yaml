@@ -2,12 +2,11 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   labels:
-    io.kompose.service: keycloak-data-dev
-  name: keycloak-data-dev
+    io.kompose.service: hivemq-data-dev
+  name: hivemq-data-dev
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: ceph-rbd
   resources:
     requests:
       storage: 100Mi

@@ -3,14 +3,14 @@ kind: Ingress
 metadata:
   name: fireguard-ingress
   annotations:
-    # These annotations keep WebSockets (HiveMQ) alive
+    # These annotations keep WebSockets (HiveMQ) alive!
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     # This fixes Keycloak proxy headers
     nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
 spec:
   rules:
-    - host: group10.ada502-fireguard.live
+    - host: fireguard.local # The local domain we will use
       http:
         paths:
           # 1. FastAPI Backend
@@ -40,7 +40,7 @@ spec:
                 port:
                   number: 8000
 
-          # 4. React Frontend
+          # 4. React Frontend (Must be last so it catches everything else!)
           - path: /
             pathType: Prefix
             backend:

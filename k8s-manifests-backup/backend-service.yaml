@@ -5,15 +5,12 @@ metadata:
     kompose.cmd: kompose convert -f ../docker-compose.yml
     kompose.version: 1.34.0 (cbf2835db)
   labels:
-    io.kompose.service: hivemq
-  name: hivemq
+    io.kompose.service: backend
+  name: backend
 spec:
   ports:
-    - name: "1883"
-      port: 1883
-      targetPort: 1883
     - name: "8000"
       port: 8000
       targetPort: 8000
   selector:
-    io.kompose.service: hivemq
+    io.kompose.service: backend

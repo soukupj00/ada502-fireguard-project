@@ -14,17 +14,14 @@ spec:
       labels:
         io.kompose.service: backend
     spec:
+      hostAliases:
+        - ip: "192.168.49.2"
+          hostnames:
+            - "fireguard.local"
       containers:
         - name: backend
-          image: ghcr.io/soukupj00/ada502-fireguard-project-backend:latest
-          imagePullPolicy: Always
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
+          image: ada502-fireguard-project-backend:latest
+          imagePullPolicy: Never
           envFrom:
             - secretRef:
                 name: fireguard-secrets

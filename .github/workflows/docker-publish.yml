@@ -35,7 +35,15 @@ jobs:
 
       - name: Build and push Frontend
         run: |
-          docker build -t $IMAGE_PREFIX-frontend:latest ./frontend
+          docker build \
+            --build-arg VITE_API_URL="${{ vars.VITE_API_URL }}" \
+            --build-arg VITE_KEYCLOAK_URL="${{ vars.VITE_KEYCLOAK_URL }}" \
+            --build-arg VITE_MQTT_BROKER_URL="${{ vars.VITE_MQTT_BROKER_URL }}" \
+            --build-arg VITE_MQTT_USERNAME="${{ secrets.VITE_MQTT_USERNAME }}" \
+            --build-arg VITE_MQTT_PASSWORD="${{ secrets.VITE_MQTT_PASSWORD }}" \
+            --build-arg VITE_THINGSPEAK_CHANNEL_ID="${{ secrets.VITE_THINGSPEAK_CHANNEL_ID }}" \
+            --build-arg VITE_THINGSPEAK_READ_API_KEY="${{ secrets.VITE_THINGSPEAK_READ_API_KEY }}" \
+            -t $IMAGE_PREFIX-frontend:latest ./frontend
           docker push $IMAGE_PREFIX-frontend:latest
 
       - name: Build and push Intelligence

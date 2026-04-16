@@ -14,17 +14,14 @@ spec:
       labels:
         io.kompose.service: intelligence
     spec:
+      hostAliases:
+        - ip: "192.168.49.2"
+          hostnames:
+            - "fireguard.local"
       containers:
         - name: intelligence
-          image: ghcr.io/soukupj00/ada502-fireguard-project-intelligence:latest
-          imagePullPolicy: Always
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
-              memory: "2Gi"
-              cpu: "1000m"
+          image: ada502-fireguard-project-intelligence:latest
+          imagePullPolicy: Never
           envFrom:
             - secretRef:
                 name: fireguard-secrets

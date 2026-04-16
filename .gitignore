@@ -48,3 +48,9 @@ frontend/dist-ssr/
 # --- Docker ---
 # Ignore local override files used for dev custom config
 docker-compose.override.yml
+k8s-manifests/secrets.yaml
+.env-backup-before-kubernetes
+cert.crt
+cert.key
+nginx-selfsigned.crt
+nginx-selfsigned.key
