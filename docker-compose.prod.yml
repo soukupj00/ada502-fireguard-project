@@ -117,9 +117,19 @@ services:
       - backend
       - keycloak
       - hivemq # Nginx needs HiveMQ running to proxy WebSockets
+      - docs
     volumes:
       - ./nginx-selfsigned.crt:/etc/nginx/ssl/cert.crt:ro
       - ./nginx-selfsigned.key:/etc/nginx/ssl/cert.key:ro
+
+  # 7.1 Documentation Site
+  docs:
+    build:
+      context: .
+      dockerfile: docs/Dockerfile
+    restart: always
+    expose:
+      - "80"
 
   # 8. Keycloak Auth Server
   keycloak:

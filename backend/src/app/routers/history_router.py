@@ -1,3 +1,5 @@
+"""Global historical readings endpoint for regional and filtered queries."""
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -33,9 +35,10 @@ async def get_zones_history(
         None, description="End date for the history (ISO 8601 format)."
     ),
 ):
-    """
-    Get historical fire risk readings for regional zones
-    or a specified list of geohashes.
+    """Return historical fire-risk readings for regional or selected zones.
+
+    This endpoint returns the normalized ``FireRiskReadingSchema`` collection
+    enriched with legend metadata and HATEOAS links.
     """
     geohash_list = geohashes.split(",") if geohashes else None
 

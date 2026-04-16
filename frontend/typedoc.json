@@ -1,0 +1,17 @@
+{
+  "name": "FireGuard Frontend API",
+  "entryPoints": ["src/index.ts"],
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "dist/docs/reference",
+  "readme": "none",
+  "githubPages": false,
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "cleanOutputDir": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "categorizeByGroup": true,
+  "parametersFormat": "table",
+  "propertiesFormat": "table"
+}

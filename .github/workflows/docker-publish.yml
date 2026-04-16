@@ -50,3 +50,19 @@ jobs:
         run: |
           docker build -t $IMAGE_PREFIX-intelligence:latest ./intelligence-system
           docker push $IMAGE_PREFIX-intelligence:latest
+
+      - name: Build and push Docs
+        continue-on-error: true
+        run: |
+          docker build -f docs/Dockerfile -t $IMAGE_PREFIX-docs:latest .
+          docker push $IMAGE_PREFIX-docs:latest
+
+      - name: Docs Build Status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Documentation build succeeded"
+          else
+            echo "⚠️  Documentation build encountered issues (non-blocking)"
+            echo "Note: Code deployment continues; documentation may be unavailable"
+          fi

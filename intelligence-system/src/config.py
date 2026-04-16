@@ -17,7 +17,11 @@ class Settings(BaseSettings):
             return v.replace("postgresql://", "postgresql+asyncpg://")
         return v or "postgresql+asyncpg://user:password@localhost/fireguard"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 settings = Settings()

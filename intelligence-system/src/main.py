@@ -1,4 +1,15 @@
-# intelligence-system/src/main.py
+"""Intelligence system worker: orchestrates risk calculations and pub/sub messaging.
+
+Manages three concurrent tasks:
+  1. Hourly scheduled risk calculations for all monitored zones
+  2. Instant (ad-hoc) risk requests from the backend via Redis queue
+  3. Event publication to Redis for dashboard and subscription updates
+
+The system listens on Redis for frontend subscription requests and location
+queries, publishing results back in real-time. All calculations are delegated
+to the zone processor which handles MET API calls and risk model logic.
+"""
+
 import asyncio
 import datetime
 import json
@@ -25,9 +36,15 @@ redis_client = redis.from_url(settings.REDIS_URL)
 
 
 async def job() -> None:
-    """
-    Fetches weather data for all monitored zones, calculates fire risk,
-    and saves the results to the database.
+    """Fetch weather data and calculate fire risk for all monitored zones (hourly).
+
+    Executes concurrency-limited requests to MET API for weather readings,
+    processes each zone's data through risk calculation model, and saves
+    results to database. Emits HOURLY_DATA_READY event via Redis when complete.
+
+    Note: Uses Semaphore to limit concurrent API requests (configurable via
+    MAX_CONCURRENT_FETCHES setting) to avoid overloading external APIs or
+    exhausting database connection pool.
     """
     logger.info("Starting fetch cycle...")
 
@@ -62,7 +79,16 @@ async def job() -> None:
 
 
 async def process_instant_queue() -> None:
-    """Listens for instant requests pushed by the backend via Redis."""
+    """Listen for and process instant (ad-hoc) risk calculation requests from backend.
+
+    Runs as long-lived coroutine that blocks on Redis (intelligence_tasks list),
+    processing high-priority requests for specific locations. Each request includes
+    a geohash/location_id; the worker fetches zone details, calculates risk,
+    and publishes result back to Redis channel for the backend to stream to clients.
+
+    Errors (missing zones, API failures) are logged and processing continues.
+    Implements 5-second backoff on failure to avoid tight error loops.
+    """
     logger.info("Instant Queue Processor Started.")
     while True:
         try:
@@ -106,7 +132,16 @@ async def process_instant_queue() -> None:
 
 
 async def process_scheduled_locations() -> None:
-    """Standard background polling loop for all monitored zones."""
+    """Run hourly background polling loop for all monitored zones.
+
+    Repeatedly calls job() on a fixed interval (FETCH_INTERVAL_SECONDS) to
+    ensure all zones receive regular weather updates and risk calculations.
+    Implements 60-second error backoff if job() fails, then resumes normal
+    schedule.
+
+    This task forms the core of the intelligence system, keeping historical
+    data fresh for both dashboard display and alerting logic.
+    """
     logger.info("Scheduled Locations Processor Started.")
     while True:
         try:
@@ -122,8 +157,14 @@ async def process_scheduled_locations() -> None:
 
 
 async def main() -> None:
-    """
-    The main function that runs the intelligence system worker.
+    """Initialize database and start concurrent worker task group.
+
+    Seeds initial monitored zones (if empty) and spawns two long-lived tasks:
+    - process_instant_queue(): Handles on-demand risk calculations
+    - process_scheduled_locations(): Runs hourly bulk risk refresh cycle
+
+    Both tasks run concurrently, coordinating via Redis messaging and shared
+    database. Worker continues indefinitely until process is terminated.
     """
     logger.info("Intelligence System Worker Starting...")
 

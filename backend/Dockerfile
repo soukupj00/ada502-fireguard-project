@@ -1,6 +1,12 @@
 # backend/Dockerfile
 FROM python:3.12-slim-bookworm
 
+# Apply OS security updates so Trivy does not fail on fixed Debian CVEs.
+RUN apt-get update \
+	&& apt-get upgrade -y \
+	&& apt-get install -y --no-install-recommends openssl libssl3 ca-certificates \
+	&& rm -rf /var/lib/apt/lists/*
+
 # 1. Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 

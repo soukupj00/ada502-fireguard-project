@@ -1,3 +1,5 @@
+"""Zone processing pipeline for weather fetch, risk calculation, and persistence."""
+
 import asyncio
 import logging
 from typing import Any, Dict
@@ -13,9 +15,13 @@ async def process_zone(
     zone: Any, semaphore: asyncio.Semaphore | None = None
 ) -> Dict[str, Any] | None:
     """
-    Fetches weather, calculates risk, and saves data for a single zone.
-    Uses semaphore to limit concurrency if provided.
-    Returns the risk data if successful.
+    Fetch weather, calculate risk, and persist readings for one zone.
+
+    If a semaphore is provided, processing is executed within that concurrency
+    guard to avoid overloading external APIs and the database.
+
+    Returns a lightweight risk payload for Redis publishing when successful,
+    otherwise ``None``.
     """
     if semaphore:
         async with semaphore:
@@ -25,7 +31,7 @@ async def process_zone(
 
 
 async def _do_process_zone(zone: Any) -> Dict[str, Any] | None:
-    """Internal helper to process a zone."""
+    """Run the zone processing flow without a semaphore wrapper."""
     logger.info(f"Processing zone: {zone.name} ({zone.geohash})")
 
     # 1. Fetch weather for the center of the zone

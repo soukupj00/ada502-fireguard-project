@@ -1,3 +1,5 @@
+"""Risk endpoints for latest readings and historical time series."""
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -39,9 +41,10 @@ async def get_risk_history(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),  # PROTECTED: Requires authentication
 ):
-    """
-    Get historical fire risk readings for a specific geohash.
-    This endpoint requires authentication.
+    """Return historical fire-risk readings for one geohash.
+
+    The endpoint is authenticated and returns a collection enriched with
+    risk legend metadata and HATEOAS navigation links.
     """
     readings = await get_historical_readings_by_geohash(
         db, geohash, start_date, end_date
@@ -77,8 +80,10 @@ async def get_risk_by_coords(
         get_current_user_optional
     ),  # Optional authentication
 ) -> FireRiskReadingSchema:
-    """
-    Get the latest fire risk reading for a location by coordinates.
+    """Return the latest fire-risk reading for a latitude/longitude pair.
+
+    Authentication is optional; authenticated users also receive subscription
+    and history links in the response.
     """
     reading = await get_latest_risk_by_coords(db, latitude, longitude)
 
@@ -124,8 +129,10 @@ async def get_risk_by_geohash(
         get_current_user_optional
     ),  # Optional authentication
 ) -> FireRiskReadingSchema:
-    """
-    Get the latest fire risk reading for a specific geohash.
+    """Return the latest fire-risk reading for a specific geohash.
+
+    Authentication is optional; authenticated users receive additional HATEOAS
+    links to subscription and history endpoints.
     """
     reading = await get_latest_risk_reading(db, geohash)
 

@@ -1,3 +1,5 @@
+"""Adapters between MET weather payloads and the Fire Risk Computation Model."""
+
 import datetime
 import logging
 from typing import Any, Dict, Tuple
@@ -10,8 +12,10 @@ logger = logging.getLogger(__name__)
 
 def transform_met_data_to_model(met_json: Dict[str, Any]) -> dm.WeatherData:
     """
-    Parses the raw JSON from MET.no and converts it into the
-    internal WeatherData object required by the FRCM compute function.
+    Convert MET.no timeseries JSON into FRCM ``WeatherData`` input.
+
+    The function keeps the full forecast sequence and normalizes timestamps to
+    timezone-aware datetimes expected by the model.
     """
     timeseries = met_json["properties"]["timeseries"]
     data_points = []
@@ -38,8 +42,11 @@ def transform_met_data_to_model(met_json: Dict[str, Any]) -> dm.WeatherData:
 
 def calculate_risk(met_json: Dict[str, Any]) -> Dict[str, Any] | None:
     """
-    Orchestrates the risk calculation:
-    MET JSON -> WeatherData -> Compute() -> Result
+    Run risk computation end-to-end and return the current prediction snapshot.
+
+    The FRCM output contains a forecast sequence; this function returns the
+    second sample, which represents the first computed point after model
+    initialization.
     """
     try:
         # 1. Transform Data
@@ -73,7 +80,7 @@ def calculate_risk_score(ttf: float) -> Tuple[float, str]:
     Calculates a normalized risk score (0-100) and
     category based on Time To Flashover (TTF).
 
-    TTF is in minutes. Lower TTF means higher risk.
+    TTF is expressed in minutes. Lower TTF means higher risk.
 
     Args:
         ttf: Time To Flashover in minutes.

@@ -1,3 +1,5 @@
+"""MET.no weather API client helpers used by the intelligence worker."""
+
 import logging
 from typing import Any
 
@@ -31,7 +33,7 @@ async def fetch_weather(lat: float, lon: float) -> Any | None:
     """
     params = {"lat": lat, "lon": lon}
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=20.0) as client:
         try:
             response = await client.get(MET_URL, headers=HEADERS, params=params)
             response.raise_for_status()

@@ -40,7 +40,16 @@ spec:
                 port:
                   number: 8000
 
-          # 4. React Frontend
+          # 4. Documentation site
+          - path: /docs
+            pathType: Prefix
+            backend:
+              service:
+                name: docs
+                port:
+                  number: 80
+
+          # 5. React Frontend
           - path: /
             pathType: Prefix
             backend:

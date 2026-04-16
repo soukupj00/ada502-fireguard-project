@@ -59,7 +59,7 @@ Most successful responses include `_links` so clients can navigate without hardc
 - `intelligence-system/` — background worker and risk model pipeline
 - `docker-compose.yml` — local development stack
 - `docker-compose.prod.yml` — production deployment stack
-- `.github/workflows/ci.yml` — CI pipeline
+- `.github/workflows/docker-publish.yml` — build-and-publish workflow for backend, frontend, and intelligence images
 
 ## Running with Docker Compose
 
@@ -100,6 +100,8 @@ MQTT_TEST_MODE=false
 THINGSPEAK_TEST_MODE=false
 THINGSPEAK_BACKFILL_ON_STARTUP=false
 ```
+
+If you omit these flags in production, the backend defaults them to `false`.
 
 ## Running locally without Docker
 
@@ -149,6 +151,8 @@ Behavior:
 
 - The backend subscribes to Redis events and publishes MQTT fire alerts when relevant.
 - Users receive alert updates only for their active subscriptions.
+- The frontend connects to HiveMQ directly over WebSocket using the build-time `VITE_MQTT_*` variables.
+- For local development, the backend talks to the broker on the Docker network, while the browser must use the broker/WebSocket URL exposed by your compose or proxy setup.
 - For testing, `MQTT_TEST_MODE=true` enables a faster alert loop.
 
 ## ThingSpeak analytics integration
@@ -175,13 +179,16 @@ Relevant settings:
 
 Notes:
 
-- The backend can push the latest analytics values after each hourly update.
-- A startup backfill can populate the channel with recent history if enabled.
+- The backend pushes the latest analytics values after each hourly Intelligence System update.
+- A startup backfill can populate the channel with the last 24 hours of history if enabled.
 - For production, leave backfill disabled unless you explicitly want to seed historical points.
+- `THINGSPEAK_TEST_MODE=true` enables a one-minute test loop for graph validation.
 
 ## Kubernetes setup
 
 FireGuard can also be deployed on Kubernetes, for example with Minikube locally or a managed cluster in production.
+
+The repository currently ships Docker Compose files and a Docker image publishing workflow, but it does not yet include Kubernetes manifests or a Helm chart. The notes below describe the expected deployment shape.
 
 ### What you need
 
@@ -193,7 +200,7 @@ FireGuard can also be deployed on Kubernetes, for example with Minikube locally 
 ### Typical setup flow
 
 1. Create Kubernetes secrets/config from your environment variables.
-2. Build or publish the service images.
+2. Build or publish the service images (for example from the GitHub Actions workflow that publishes to GHCR).
 3. Deploy the database, Redis, Keycloak, backend, frontend, intelligence system, and broker dependencies.
 4. Configure ingress so the browser can reach the frontend and API.
 5. Point the application to cluster-internal service names for PostgreSQL, Redis, and other internal services.
@@ -211,6 +218,7 @@ minikube tunnel
 ```
 
 If you use Kubernetes, make sure the environment variables for internal routing point to cluster service DNS names rather than `localhost`.
+For browser access, expose the frontend and the MQTT WebSocket endpoint through ingress or a reverse proxy.
 
 ## Configuration
 
@@ -232,6 +240,8 @@ In production, the usual defaults are:
 - `THINGSPEAK_TEST_MODE=false`
 - `THINGSPEAK_BACKFILL_ON_STARTUP=false`
 
+For local development, `docker-compose.yml` wires the services together on the Docker network and enables faster MQTT testing by default, while `docker-compose.prod.yml` keeps the test modes off and exposes only the public-facing ports.
+
 ## Development and testing notes
 
 - `MQTT_TEST_MODE` enables a short interval MQTT push loop for testing alert delivery.
@@ -249,7 +259,34 @@ pip install pre-commit
 pre-commit install
 ```
 
-The CI workflow is defined in `.github/workflows/ci.yml`.
+Image publishing is handled by the GitHub Actions workflow in `.github/workflows/docker-publish.yml`.
+
+## Documentation
+
+The project uses Material for MkDocs as a single documentation platform for backend,
+intelligence-system, and frontend.
+
+What is generated automatically:
+
+- Python API reference from backend and intelligence-system docstrings
+- Frontend API reference from TypeDoc
+- Static docs site for GitHub Pages and in-cluster `/docs` publishing
+
+Local docs build:
+
+```bash
+uv sync --project docs
+npm --prefix frontend run docs:api
+mkdir -p docs/frontend/reference
+cp -R frontend/dist/docs/reference/. docs/frontend/reference/
+PYTHONPATH=backend/src:intelligence-system/src uv run --project docs mkdocs serve
+```
+
+Publish flow:
+
+- GitHub Pages deploy is handled by `.github/workflows/docs.yml`
+- Docs container image publishing is handled by `.github/workflows/docker-publish.yml`
+- Kubernetes exposure is configured with `/docs` route in `k8s-manifests/ingress.yaml`
 
 ## Troubleshooting
 

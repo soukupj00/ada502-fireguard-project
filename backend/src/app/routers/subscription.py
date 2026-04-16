@@ -1,3 +1,5 @@
+"""Authenticated subscription endpoints and SSE updates for user locations."""
+
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,9 +31,7 @@ async def create_subscription(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
 ) -> SubscriptionResponse:
-    """
-    Create a new subscription for the authenticated user.
-    """
+    """Create a monitored-location subscription for the current user."""
     user_id = user.get("sub")
     return await subscribe_to_location_logic(db, payload, user_id, request)
 
@@ -42,9 +42,7 @@ async def get_my_subscriptions(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
 ) -> GeoJSONFeatureCollection:
-    """
-    Get all active subscriptions for the currently authenticated user in GeoJSON format.
-    """
+    """Return all active subscriptions for the current user as GeoJSON."""
     user_id = user.get("sub")
     return await get_user_subscriptions_logic(db, user_id, request)
 
@@ -55,9 +53,7 @@ async def delete_subscription(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
 ) -> None:
-    """
-    Remove a subscription for the authenticated user.
-    """
+    """Delete one subscription for the authenticated user."""
     user_id = user.get("sub")
     await unsubscribe_from_location_logic(db, geohash, user_id)
     return None
@@ -68,9 +64,7 @@ async def stream_subscription_updates(
     geohash: str,
     user: dict = Depends(get_current_user_ws_or_sse),
 ) -> StreamingResponse:
-    """
-    Streams fire risk updates for a specific geohash via Server-Sent Events.
-    """
+    """Stream fire-risk updates for a geohash over Server-Sent Events (SSE)."""
 
     async def event_generator():
         # Send the most recent known value first to avoid race conditions where

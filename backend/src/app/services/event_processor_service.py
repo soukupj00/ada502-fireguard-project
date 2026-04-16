@@ -118,6 +118,11 @@ async def process_thingspeak_analytics(db: AsyncSession):
 def _build_thingspeak_payload(
     city_scores: dict[str, float | None], national_average: float | None
 ) -> dict[str, float]:
+    """Build a ThingSpeak field payload from city and national scores.
+
+    The mapping uses fixed field ordering from
+    ``THINGSPEAK_CITY_FIELD_ORDER`` and only includes values that are present.
+    """
     payload: dict[str, float] = {}
     for index, city in enumerate(THINGSPEAK_CITY_FIELD_ORDER, start=1):
         score = city_scores.get(city)
@@ -129,6 +134,7 @@ def _build_thingspeak_payload(
 
 
 def _distance_sq(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return squared Euclidean distance between two lat/lon points."""
     return (lat1 - lat2) ** 2 + (lon1 - lon2) ** 2
 
 
@@ -182,6 +188,7 @@ async def _resolve_analytics_city_geohashes(db: AsyncSession) -> dict[str, str]:
 
 
 def _to_hour_bucket(ts: datetime) -> datetime:
+    """Normalize a timestamp to the UTC hour bucket used by analytics backfill."""
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
     ts = ts.astimezone(timezone.utc)

@@ -1,3 +1,5 @@
+"""Database models and persistence helpers for the intelligence worker."""
+
 from typing import Any, AsyncGenerator, Dict, Sequence
 
 from sqlalchemy import (
@@ -254,8 +256,9 @@ async def save_risk_data(
 async def get_latest_readings(
     location_name: str, limit: int = 1
 ) -> dict[str, Sequence[Any]]:
-    """
-    Debug function to get the latest weather and fire risk readings for a location.
+    """Return recent weather and risk rows for one location for debugging.
+
+    This helper is primarily intended for operational inspection and tests.
     """
     async with AsyncSessionLocal() as db:
         weather_result = await db.execute(

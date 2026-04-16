@@ -5,15 +5,15 @@ import pygeohash as pgh
 
 def get_geohash(lat: float, lon: float, precision: int = 5) -> str:
     """
-    Converts latitude and longitude to a geohash string.
+    Convert latitude/longitude coordinates into a geohash.
 
     Args:
         lat: Latitude.
         lon: Longitude.
         precision: Length of the geohash string.
-                   3 chars ~= 156km x 156km (Coarse Regional Tier)
-                   4 chars ~= 39km x 19km (Finer Regional Tier)
-                   5 chars ~= 4.9km x 4.9km (Precise Tier for User Alerts)
+            - 3 chars ~= 156 km x 156 km (coarse regional tier)
+            - 4 chars ~= 39 km x 19 km (finer regional tier)
+            - 5 chars ~= 4.9 km x 4.9 km (precise tier for user alerts)
 
     Returns:
         The geohash string.
@@ -23,7 +23,7 @@ def get_geohash(lat: float, lon: float, precision: int = 5) -> str:
 
 def get_geohash_center(geohash: str) -> Tuple[float, float]:
     """
-    Decodes a geohash string to its center latitude and longitude.
+    Decode a geohash into its center latitude/longitude.
 
     Args:
         geohash: The geohash string.
@@ -32,5 +32,5 @@ def get_geohash_center(geohash: str) -> Tuple[float, float]:
         A tuple of (latitude, longitude).
     """
     lat, lon = pgh.decode(geohash)
-    # pygeohash returns strings or floats depending on version, ensure float
+    # Some pygeohash versions return strings; normalize output to floats.
     return float(lat), float(lon)

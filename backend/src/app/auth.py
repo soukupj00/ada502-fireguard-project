@@ -1,3 +1,5 @@
+"""Authentication dependencies and token validation helpers for Keycloak."""
+
 import os
 from typing import Optional
 
@@ -29,6 +31,11 @@ JWKS_URL = f"{KEYCLOAK_INTERNAL_URL}/realms/{REALM}/protocol/openid-connect/cert
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
+    """Validate a bearer token against Keycloak JWKS and return JWT claims.
+
+    Raises HTTP 401 for invalid credentials and HTTP 500 when Keycloak
+    connectivity fails.
+    """
     try:
         # FETCH PUBLIC KEYS (Consider caching this globally to
         # avoid per-request network calls)
@@ -81,6 +88,11 @@ async def get_current_user_ws_or_sse(token: str = Query(...)):
 
 
 async def get_current_user_optional(request: Request) -> Optional[dict]:
+    """Best-effort user extraction from ``Authorization`` header.
+
+    Returns decoded claims when a valid bearer token is present, otherwise
+    returns ``None`` without raising.
+    """
     # Try to extract token from Authorization header manually
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):

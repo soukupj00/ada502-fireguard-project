@@ -1,0 +1,50 @@
+site_name: FireGuard Engineering Docs
+site_description: Architecture and API docs for backend, intelligence system, and frontend.
+repo_url: https://github.com/soukupj00/ADA502-FireGuard-Project
+repo_name: soukupj00/ADA502-FireGuard-Project
+docs_dir: docs
+site_dir: site
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: red
+      accent: orange
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            setup_commands:
+              - import sys
+              - sys.path.insert(0, "backend/src")
+              - sys.path.insert(0, "intelligence-system/src")
+            docstring_style: google
+            show_source: false
+            members_order: source
+            filters:
+              - "!^_"
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Backend:
+      - Overview: backend/overview.md
+      - API Reference: backend/api-reference.md
+  - Intelligence System:
+      - Overview: intelligence/overview.md
+      - API Reference: intelligence/api-reference.md
+  - Frontend:
+      - Overview: frontend/overview.md
+      - API Reference: frontend/api-reference.md
