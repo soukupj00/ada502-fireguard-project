@@ -48,4 +48,5 @@ nav:
   - Frontend:
       - Overview: frontend/overview.md
       - API Reference: frontend/api-reference.md
+      - API Catalog: frontend/api-catalog.md
       - Generated Reference Index: frontend/reference/README.md

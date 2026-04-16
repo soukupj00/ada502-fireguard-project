@@ -207,32 +207,42 @@ jobs:
           fail_action: false # Set to true later once you fix initial warnings!
 
   # ------------------------------------------------------------------
-  # JOB 5: DEPLOY TO NREC (Only runs on main after CI passes)
+  # JOB 5: DEPLOY TO NREC KUBERNETES (Only runs on main after CI passes)
   # ------------------------------------------------------------------
   deploy:
-    name: Deploy to NREC
+    name: Deploy to NREC Kubernetes
     needs: [ backend, intelligence-ci, frontend, dast-scan ] # CRITICAL: Wait for tests to pass
     # Only run this job if the push/merge was specifically to the main branch
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
+      - name: Deploy manifests and restart workloads via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.NREC_HOST }}
           username: ${{ secrets.NREC_USERNAME }}
           key: ${{ secrets.NREC_SSH_KEY }}
-          # These are the exact commands GitHub will type into your NREC terminal
+          # Apply Kubernetes manifests and refresh deployments to pull latest images.
           script: |
             cd ~/ADA502-FireGuard-Project
             git pull origin main
 
-            # Rebuild and restart the containers in the background
-            docker compose -f docker-compose.prod.yml up -d --build
+            # Apply latest Kubernetes manifests (including docs deployment/service/ingress)
+            kubectl apply -f k8s-manifests/
 
-            # Force Nginx to wake up and fetch the new internal IPs
-            docker compose -f docker-compose.prod.yml restart frontend
+            # Restart app deployments so :latest images are pulled again
+            kubectl rollout restart deployment/backend
+            kubectl rollout restart deployment/frontend
+            kubectl rollout restart deployment/intelligence
+            kubectl rollout restart deployment/docs
 
-            # Clean up old dangling images to save NREC disk space
-            docker image prune -f
+            # Wait for successful rollout of core deployments
+            kubectl rollout status deployment/backend --timeout=180s
+            kubectl rollout status deployment/frontend --timeout=180s
+            kubectl rollout status deployment/intelligence --timeout=180s
+            kubectl rollout status deployment/docs --timeout=180s
+
+            # Quick ingress and docs checks
+            kubectl get ingress fireguard-ingress -o wide
+            kubectl get pods -l app=docs
