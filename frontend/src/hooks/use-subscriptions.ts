@@ -1,22 +1,18 @@
 import useSWR from "swr"
-import { apiClient } from "@/lib/api"
-import type { GeoJSONResponse } from "@/lib/types"
+import { fetchJson } from "@/lib/api"
+import type { UserSubscriptionListResponse } from "@/lib/types"
 
-const fetcher = async (url: string) => {
-  const res = await apiClient.get(url)
-  return res.data
-}
+const fetcher = (url: string) => fetchJson<UserSubscriptionListResponse>(url)
 
 export function useSubscriptions() {
-  const { data, error, isLoading, mutate } = useSWR<GeoJSONResponse>(
-    "/users/me/subscriptions/",
-    fetcher
-  )
+  const { data, error, isLoading, mutate } =
+    useSWR<UserSubscriptionListResponse>("/users/me/subscriptions/", fetcher)
 
   return {
     subscriptions: data,
+    geohashes: data?.geohashes ?? [],
     isLoading,
     isError: error,
-    mutate, // Export mutate to easily trigger a re-fetch after a new subscription or deletion
+    mutate,
   }
 }
