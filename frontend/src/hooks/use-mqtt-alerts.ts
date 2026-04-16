@@ -1,9 +1,37 @@
+/**
+ * React hook for receiving real-time fire risk alerts via MQTT.
+ *
+ * Connects to HiveMQ broker and subscribes to alert topics for user's
+ * monitored zones. Displays toast notifications when alerts are published.
+ *
+ * @module hooks/use-mqtt-alerts
+ */
+
+/**
+ * React hook for receiving real-time fire risk alerts via MQTT.
+ *
+ * Connects to HiveMQ broker and subscribes to alert topics for user's monitored zones.
+ * Displays toast notifications when fire risk alerts are published.
+ *
+ * @module hooks/use-mqtt-alerts
+ */
+
 import { useEffect, useRef } from "react"
 import mqtt from "mqtt"
 import { toast } from "sonner"
 import { MQTT_BROKER_URL, MQTT_PASSWORD, MQTT_USERNAME } from "@/lib/env"
 import type { MapFeature } from "@/types/map"
 
+/**
+ * Hook for establishing MQTT connection and receiving real-time fire alerts.
+ *
+ * Subscribes to topics corresponding to user's zone subscriptions.
+ * Parses incoming alert messages (JSON or plain text) and displays as toast notifications.
+ * Automatically reconnects on connection loss.
+ *
+ * @param {MapFeature[] | undefined} subscriptions - User's active zone subscriptions
+ * @returns {void}
+ */
 export function useMqttAlerts(subscriptions: MapFeature[] | undefined) {
   const clientRef = useRef<mqtt.MqttClient | null>(null)
 

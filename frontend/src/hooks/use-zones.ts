@@ -1,3 +1,12 @@
+/**
+ * React hook for fetching and managing fire risk zones.
+ *
+ * Retrieves monitored zones (regional or all) from the backend,
+ * formatted as GeoJSON for map visualization. Data is cached with automatic hourly refresh.
+ *
+ * @module hooks/use-zones
+ */
+
 import useSWR from "swr"
 import { fetchZones } from "@/lib/api"
 import type { GeoJSONResponse } from "@/lib/types"
