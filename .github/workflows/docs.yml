@@ -5,6 +5,9 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 permissions:
   contents: read
   pages: write
@@ -14,6 +17,8 @@ jobs:
   docs:
     name: Build Docs
     runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.deployment_gate.outputs.should_deploy }}
 
     steps:
       - name: Checkout repository
@@ -68,19 +73,36 @@ jobs:
           fi
 
       - name: Configure GitHub Pages
+        id: configure_pages
         if: steps.mkdocs_build.outcome == 'success'
+        continue-on-error: true
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload Pages artifact
+        id: upload_pages
         if: steps.mkdocs_build.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
+      - name: Decide whether to deploy Pages
+        id: deployment_gate
+        if: always()
+        run: |
+          if [ "${{ steps.mkdocs_build.outcome }}" = "success" ] && [ "${{ steps.upload_pages.outcome }}" = "success" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Pages artifact is available. Deploy job will run."
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ Skipping Pages deploy (docs build or artifact upload was not successful)."
+          fi
+
   deploy-pages:
     name: Deploy to GitHub Pages
     needs: docs
-    if: always()
+    if: needs.docs.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
