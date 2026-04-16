@@ -84,7 +84,6 @@ export const buildApiUrl = (endpoint: string) => {
  * Attempts to parse JSON for `detail` or `message` fields,
  * falls back to plain text or HTTP status code.
  *
- * @async
  * @param {Response} response - HTTP response object
  * @returns {Promise<string>} Error message suitable for display
  */
@@ -118,7 +117,6 @@ const getErrorMessage = async (response: Response) => {
  * - Redirects to login if token refresh fails
  * - Throws error with API message on 4xx/5xx status
  *
- * @async
  * @param {string} endpoint - API endpoint path (e.g., "/zones", "zones")
  * @param {RequestInit} [options={}] - Fetch options (method, body, headers, etc.)
  * @returns {Promise<Response>} HTTP response object
@@ -164,7 +162,6 @@ export const fetchWithAuth = async (
  * Typed wrapper around fetchWithAuth that parses response as JSON.
  * Handles 204 No Content responses by returning undefined.
  *
- * @async
  * @template T - Expected JSON response type
  * @param {string} endpoint - API endpoint path
  * @param {RequestInit} [options={}] - Fetch options
@@ -189,7 +186,6 @@ export const fetchJson = async <T>(
  *
  * Returns GeoJSON FeatureCollection of Zone objects with current risk data.
  *
- * @async
  * @param {boolean} [regionalOnly=true] - If true, only returns regional zones (excludes local monitoring)
  * @returns {Promise<GeoJSONResponse>} GeoJSON FeatureCollection of zones with fire risk
  */
@@ -202,7 +198,6 @@ export async function fetchZones(
 /**
  * Fetches historical fire risk readings for specified zones and date range.
  *
- * @async
  * @param {string} [startDate] - ISO 8601 start date (optional)
  * @param {string} [endDate] - ISO 8601 end date (optional)
  * @param {string} [geohashes] - Comma-separated geohashes to filter (optional)
@@ -225,7 +220,6 @@ export const fetchHistory = async (
 /**
  * Fetches data from secured endpoints requiring authentication.
  *
- * @async
  * @template T - Expected JSON response type
  * @param {string} endpoint - API endpoint path
  * @returns {Promise<T>} Parsed JSON response
@@ -240,7 +234,6 @@ export const fetchSecureData = async <T>(endpoint: string) => {
  * Creates subscription to receive notifications when fire risk exceeds
  * configured threshold in the specified geohash zone.
  *
- * @async
  * @param {SubscriptionRequest} payload - Subscription request with geohash
  * @returns {Promise<SubscriptionResponse>} Subscription confirmation and status
  */
@@ -264,7 +257,6 @@ export const subscribeToLocation = async (
  *
  * Removes subscription, stopping alert notifications for the zone.
  *
- * @async
  * @param {string} geohash - Geohash of zone to unsubscribe from
  * @returns {Promise<void>}
  */

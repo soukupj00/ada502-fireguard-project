@@ -35,7 +35,7 @@ export interface HATEOASLink {
  * Provides REST discoverability through hypermedia links and JSON-LD context.
  *
  * @interface BaseHATEOASResponse
- * @property {"@context"} @context - JSON-LD namespace context (optional)
+ * @property {Record<string, string>} context - JSON-LD namespace context exposed as the "@context" field (optional)
  * @property {HATEOASLink[]} _links - Navigation and action links (optional)
  */
 export interface BaseHATEOASResponse {
@@ -153,7 +153,7 @@ export interface GeoJSONProperties {
  * @property {Object} geometry - Point geometry
  * @property {number[]} geometry.coordinates - [longitude, latitude] array
  * @property {GeoJSONProperties} properties - Zone and risk properties
- * @property {Record<string, string> | null} @context - JSON-LD context or null
+ * @property {Record<string, string> | null} context - JSON-LD context exposed as the "@context" field or null
  * @property {HATEOASLink[] | null} _links - Navigation links or null
  */
 export interface GeoJSONFeature {
