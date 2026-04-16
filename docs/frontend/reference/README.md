@@ -1,5 +1,15 @@
 # FireGuard Frontend API
 
+FireGuard Frontend Public API and Type Exports.
+
+This module serves as the entry point for TypeDoc API documentation generation.
+Exports all public-facing types and custom hooks that should be documented.
+
+Public exports include:
+- Custom React hooks for fire risk monitoring and subscriptions
+- TypeScript type definitions for API responses and domain entities
+- Integration utilities for backend API and realt-time services
+
 ## Interfaces
 
 - [ApiError](interfaces/ApiError.md)

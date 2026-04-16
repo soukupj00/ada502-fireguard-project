@@ -1,3 +1,12 @@
+/**
+ * React hook for Server-Sent Events (SSE) stream of fire risk data.
+ *
+ * Establishes persistent connection to backend SSE endpoint for a specific zone.
+ * Streams fire risk readings until connection closes after first message.
+ *
+ * @module hooks/use-location-stream
+ */
+
 import useSWRSubscription from "swr/subscription"
 import keycloak from "@/keycloak"
 import type { StreamRiskData } from "@/lib/types"
