@@ -1,3 +1,5 @@
+"""Subscription service logic for user-location monitoring workflows."""
+
 import json
 
 from fastapi import HTTPException, Request
@@ -115,8 +117,10 @@ async def get_user_subscriptions_logic(
     db: AsyncSession, user_id: str, request: Request
 ) -> GeoJSONFeatureCollection:
     """
-    Get all zones a user is subscribed to in GeoJSON-LD format.
-    Includes the latest risk data if available.
+    Return all zones for a user in GeoJSON-LD with current risk snapshot.
+
+    The collection includes HATEOAS links for risk lookup, unsubscribe,
+    and SSE stream endpoints per zone.
     """
     # 1. Find all geohashes the user is subscribed to
     sub_query = select(UserSubscription.geohash).where(
@@ -199,6 +203,8 @@ async def unsubscribe_from_location_logic(
 ) -> None:
     """
     Remove a user's subscription to a specific geohash.
+
+    Raises HTTP 404 if the target subscription is not found for the user.
     """
     # Find the subscription for this user and geohash
     query = select(UserSubscription).where(

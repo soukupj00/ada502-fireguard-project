@@ -1,3 +1,5 @@
+"""Grid/geohash helpers for seeding and analytics-target zone selection."""
+
 from dataclasses import dataclass
 from typing import Iterable, List, Tuple
 
@@ -47,6 +49,7 @@ def get_geohash_center(geohash: str) -> Tuple[float, float]:
 
 
 def _distance_sq(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return squared Euclidean distance between two latitude/longitude points."""
     return (lat1 - lat2) ** 2 + (lon1 - lon2) ** 2
 
 
@@ -73,6 +76,7 @@ def _pick_analytics_zones(zones: Iterable[_CandidateZone]) -> list[str]:
 
 
 def mark_analytics_targets(zones: List[dict]) -> List[dict]:
+    """Mark a subset of zones as analytics targets based on nearest city mapping."""
     if not zones:
         return zones
 

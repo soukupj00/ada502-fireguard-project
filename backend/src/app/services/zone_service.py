@@ -1,3 +1,5 @@
+"""Zone service that assembles GeoJSON views over monitored zones and risk."""
+
 from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

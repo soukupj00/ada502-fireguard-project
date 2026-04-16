@@ -1,3 +1,5 @@
+"""Zone discovery and regional history endpoints."""
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -19,9 +21,7 @@ async def get_zones(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> GeoJSONFeatureCollection:
-    """
-    Get all regional monitored zones in GeoJSON format.
-    """
+    """Return all regional monitored zones as a GeoJSON feature collection."""
     # The actual logic is in get_zones_geojson, which now adds the history link
     return await get_zones_geojson(db, request)
 
@@ -46,10 +46,10 @@ async def get_zones_history(
         None, description="End date for the history (ISO 8601 format)."
     ),
 ):
-    """
-    Get historical fire risk readings for regional zones
-    or a specified list of geohashes.
-    This endpoint is public and returns data only for predefined regional zones.
+    """Return historical risk readings for regional zones or selected geohashes.
+
+    The endpoint is public. If ``geohashes`` is omitted, data is scoped to
+    predefined regional zones.
     """
     geohash_list = geohashes.split(",") if geohashes else None
 

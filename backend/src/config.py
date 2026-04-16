@@ -29,7 +29,11 @@ class Settings(BaseSettings):
         False  # Enable 1min interval ThingSpeak push for testing
     )
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 settings = Settings()

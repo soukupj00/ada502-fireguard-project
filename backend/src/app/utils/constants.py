@@ -1,3 +1,11 @@
+"""Shared constants and lookup tables for risk assessment and analytics.
+
+Defines risk level classifications (Low, Moderate, High, Extreme), cities
+included in ThingSpeak analytics, and field mappings for third-party data
+integrations. Enables consistent risk categorization across backend and
+intelligence system.
+"""
+
 from app.schemas import RiskLegend, RiskLevel
 
 RISK_LEGEND_DATA = RiskLegend(

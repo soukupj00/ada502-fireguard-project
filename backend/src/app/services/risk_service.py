@@ -1,3 +1,5 @@
+"""Risk service helpers for current-risk lookups and fallback scoring."""
+
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -10,8 +12,10 @@ from app.schemas import FireRiskRequest, FireRiskResponse
 
 
 def calculate_fire_risk_logic(payload: FireRiskRequest) -> FireRiskResponse:
-    """
-    Calculates a simplified fire risk based on weather parameters.
+    """Compute a simplified fire-risk score from weather parameters.
+
+    This is a lightweight fallback/illustrative calculation, not the
+    production intelligence pipeline model.
     """
     # Simple placeholder logic for risk calculation
     # In a real application, this would involve a complex model

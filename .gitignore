@@ -13,6 +13,7 @@ ENV/
 
 # Byte-compiled / Optimized / DLL files
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 
@@ -31,6 +32,7 @@ junit/
 .env
 .env.local
 .env.production
+.env-*
 # Keep example files
 !*.example
 
@@ -44,6 +46,10 @@ pnpm-debug.log*
 # Vite Build Output
 frontend/dist/
 frontend/dist-ssr/
+site/
+docs/frontend/reference/**
+!docs/frontend/reference/
+!docs/frontend/reference/README.md
 
 # --- Docker ---
 # Ignore local override files used for dev custom config
@@ -54,3 +60,7 @@ cert.crt
 cert.key
 nginx-selfsigned.crt
 nginx-selfsigned.key
+
+# Local workspace and generated k8s env from local secrets
+*.code-workspace
+k8s-manifests/env-configmap.yaml

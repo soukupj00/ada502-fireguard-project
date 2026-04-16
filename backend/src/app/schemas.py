@@ -1,3 +1,5 @@
+"""Pydantic schemas for API payloads, GeoJSON documents, and HATEOAS metadata."""
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -25,7 +27,7 @@ class FireRiskRequest(BaseModel):
 
 
 class Link(BaseModel):
-    """HATEOAS Link Model"""
+    """HATEOAS link object used in ``_links`` collections."""
 
     href: str
     rel: str
@@ -228,11 +230,15 @@ class UserSubscriptionListResponse(BaseModel):
 
 
 class GeoJSONGeometry(BaseModel):
+    """GeoJSON geometry object used by zone and history features."""
+
     type: str = "Point"
     coordinates: List[float]  # [lon, lat]
 
 
 class GeoJSONProperties(BaseModel):
+    """Properties payload for each GeoJSON zone feature."""
+
     geohash: str
     name: Optional[str] = None
     is_regional: bool
@@ -242,6 +248,8 @@ class GeoJSONProperties(BaseModel):
 
 
 class GeoJSONFeature(BaseModel):
+    """GeoJSON feature representing one monitored zone."""
+
     type: str = "Feature"
     geometry: GeoJSONGeometry
     properties: GeoJSONProperties
@@ -253,6 +261,8 @@ class GeoJSONFeature(BaseModel):
 
 
 class GeoJSONFeatureCollection(BaseModel):
+    """GeoJSON feature collection wrapper returned by zone/subscription APIs."""
+
     type: str = "FeatureCollection"
     features: List[GeoJSONFeature]
     risk_legend: Optional[RiskLegend] = Field(
