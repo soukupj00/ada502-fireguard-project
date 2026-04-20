@@ -1,278 +1,228 @@
 # FireGuard
 
-FireGuard is a fire-risk monitoring and analytics system. It calculates fire risk from weather data, stores hourly readings, exposes a REST API for clients, and distributes alerts/analytics through MQTT and ThingSpeak.
+FireGuard is a fire-risk monitoring and analytics platform.
+It combines a React frontend, FastAPI backend, intelligence worker, MQTT alerting, Keycloak auth, PostgreSQL, Redis, and generated documentation.
 
-## What this repository contains
+## Live Environment
 
-- **Frontend**: a React + Vite web app for browsing fire risk data and subscriptions.
-- **Backend**: a FastAPI REST API with HATEOAS links and authentication-aware endpoints.
-- **Intelligence System**: a background worker that fetches MET Norway data, calculates fire risk, and writes results to the database.
-- **PostgreSQL**: shared persistence for current and historical readings.
-- **Redis**: event bus and SSE/MQTT orchestration channel.
-- **Keycloak**: authentication and authorization.
-- **HiveMQ**: MQTT broker used for fire alert delivery.
-- **ThingSpeak**: analytics channel used to visualize city and national fire-risk trends.
+- App URL: https://group10.ada502-fireguard.live/
+- Docs URL (cluster): https://group10.ada502-fireguard.live/docs/
+- Keycloak path (proxied): https://group10.ada502-fireguard.live/auth/
+- API base (proxied): https://group10.ada502-fireguard.live/api/
 
-## Architecture overview
+## Generated documentation
 
-The runtime flow is:
+- GitHub pages FireGuard Documentation: https://soukupj00.github.io/ada502-fireguard-project/
 
-1. The **Intelligence System** fetches weather data and calculates the fire risk score.
-2. The result is stored in PostgreSQL as the latest reading and historical rows.
-3. When the hourly calculation completes, the worker publishes a Redis event.
-4. The **Backend** listens for that Redis event and orchestrates downstream work.
-5. The backend publishes MQTT alerts to **HiveMQ** for subscribed users when risk levels are high enough.
-6. The backend also pushes analytics to **ThingSpeak** for:
-   - Oslo
-   - Bergen
-   - Trondheim
-   - Stavanger
-   - Kristiansand
-   - Tromsø
-   - Bodø
-   - National average
-7. The REST API remains the main entry point for the frontend, with HATEOAS links guiding navigation between related resources.
+## Repository Components
 
-## REST API and HATEOAS
+- `frontend/`: React + Vite + TypeScript web UI.
+- `backend/`: FastAPI API, auth-aware routes, subscriptions, SSE, MQTT orchestration.
+- `intelligence-system/`: periodic weather ingestion and fire-risk computation.
+- `docs/`: MkDocs + Material site and docs container setup.
+- `k8s-manifests/`: Kubernetes manifests for NREC/Minikube-style deployment.
+- `.github/workflows/`: CI, image publishing, docs publishing, deployment automation.
+- `realm-exports/`: Keycloak export files used for realm bootstrap/import.
 
-The backend exposes versioned endpoints under `/api/v1/`.
-Common entry points include:
+## How the App Works
 
-- `GET /api/v1/` — API discovery document with HATEOAS links
-- `GET /api/v1/risk/coords?latitude=&longitude=` — latest risk by coordinates
-- `GET /api/v1/risk/{geohash}` — latest risk by geohash
-- `GET /api/v1/risk/{geohash}/history` — historical readings for a single location
-- `GET /api/v1/zones/` — GeoJSON for monitored zones
-- `GET /api/v1/zones/history` — historical readings for monitored zones
-- `GET /api/v1/history/` — historical readings collection endpoint
-- `POST /api/v1/users/me/subscriptions/` — create a subscription
-- `GET /api/v1/users/me/subscriptions/` — list subscriptions
-- `DELETE /api/v1/users/me/subscriptions/{geohash}` — remove a subscription
-- `GET /api/v1/users/me/subscriptions/{geohash}/stream` — SSE stream for subscription updates
+1. Intelligence worker fetches and processes weather inputs.
+2. Worker computes fire-risk and writes current + historical data to PostgreSQL.
+3. Worker triggers downstream events via Redis.
+4. Backend reacts to events and serves updated data via API and SSE.
+5. Backend publishes alert messages to HiveMQ topics for subscribed users.
+6. Backend pushes analytics to ThingSpeak fields.
+7. Frontend consumes API, SSE, MQTT, and ThingSpeak read endpoints to render live risk and trends.
 
-Most successful responses include `_links` so clients can navigate without hardcoding every path.
+## Prerequisites
 
-## Project structure
+### General
 
-- `backend/` — FastAPI app, routers, services, database layer, and HATEOAS helpers
-- `frontend/` — browser UI
-- `intelligence-system/` — background worker and risk model pipeline
-- `docker-compose.yml` — local development stack
-- `docker-compose.prod.yml` — production deployment stack
-- `.github/workflows/docker-publish.yml` — build-and-publish workflow for backend, frontend, and intelligence images
+- Git
+- Docker + Docker Compose plugin
+- Node.js 20+ (for local frontend/docs generation)
+- Python 3.12 + `uv` (for local backend/intelligence/docs commands)
 
-## Running with Docker Compose
+### For Kubernetes/Minikube
 
-Docker Compose is the easiest way to run the full stack locally.
-
-### Prerequisites
-
-- Docker
-- Docker Compose
-
-### Start the development stack
-
-From the repository root:
-
-```bash
-docker compose up --build
-```
-
-Useful services in development usually include:
-
-- Frontend: `http://localhost:5173`
-- Backend docs: `http://localhost:8000/api/docs/`
-- Keycloak: `http://localhost:8080/auth`
-- Redis: `localhost:6379`
-
-### Production compose
-
-For the production setup, use the production compose file:
-
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
-```
-
-Production should typically keep the test modes disabled:
-
-```env
-MQTT_TEST_MODE=false
-THINGSPEAK_TEST_MODE=false
-THINGSPEAK_BACKFILL_ON_STARTUP=false
-```
-
-If you omit these flags in production, the backend defaults them to `false`.
-
-## Running locally without Docker
-
-If you want to run individual services directly:
-
-### Backend
-
-```bash
-cd backend
-uv sync
-uv run fastapi dev src/app/main.py
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Intelligence system
-
-```bash
-cd intelligence-system
-uv sync
-uv run python src/main.py
-```
-
-## HiveMQ MQTT integration
-
-The backend connects to HiveMQ as an MQTT client using the environment variables defined in `backend/src/config.py`.
-
-Key settings:
-
-- `HIVEMQ_HOST`
-- `HIVEMQ_PORT`
-- `HIVEMQ_USERNAME`
-- `HIVEMQ_PASSWORD`
-- `HIVEMQ_USE_TLS`
-- `HIVEMQ_CA_CERT`
-- `HIVEMQ_CLIENT_CERT`
-- `HIVEMQ_CLIENT_KEY`
-- `HIVEMQ_TLS_INSECURE`
-
-Behavior:
-
-- The backend subscribes to Redis events and publishes MQTT fire alerts when relevant.
-- Users receive alert updates only for their active subscriptions.
-- The frontend connects to HiveMQ directly over WebSocket using the build-time `VITE_MQTT_*` variables.
-- For local development, the backend talks to the broker on the Docker network, while the browser must use the broker/WebSocket URL exposed by your compose or proxy setup.
-- For testing, `MQTT_TEST_MODE=true` enables a faster alert loop.
-
-## ThingSpeak analytics integration
-
-ThingSpeak is used for fire-risk analytics dashboards.
-
-Channel mapping:
-
-- `field1` — Oslo
-- `field2` — Bergen
-- `field3` — Trondheim
-- `field4` — Stavanger
-- `field5` — Kristiansand
-- `field6` — Tromsø
-- `field7` — Bodø
-- `field8` — National average
-
-Relevant settings:
-
-- `THINGSPEAK_WRITE_API_KEY`
-- `THINGSPEAK_CHANNEL_ID`
-- `THINGSPEAK_BACKFILL_ON_STARTUP`
-- `THINGSPEAK_TEST_MODE`
-
-Notes:
-
-- The backend pushes the latest analytics values after each hourly Intelligence System update.
-- A startup backfill can populate the channel with the last 24 hours of history if enabled.
-- For production, leave backfill disabled unless you explicitly want to seed historical points.
-- `THINGSPEAK_TEST_MODE=true` enables a one-minute test loop for graph validation.
-
-## Kubernetes setup
-
-FireGuard can also be deployed on Kubernetes, for example with Minikube locally or a managed cluster in production.
-
-The repository currently ships Docker Compose files and a Docker image publishing workflow, but it does not yet include Kubernetes manifests or a Helm chart. The notes below describe the expected deployment shape.
-
-### What you need
-
-- Kubernetes cluster
 - `kubectl`
-- An ingress controller if you want browser access through a hostname
-- Container images for the backend, frontend, and intelligence system
+- `minikube`
+- NGINX ingress addon enabled in Minikube
 
-### Typical setup flow
+## Required Configuration
 
-1. Create Kubernetes secrets/config from your environment variables.
-2. Build or publish the service images (for example from the GitHub Actions workflow that publishes to GHCR).
-3. Deploy the database, Redis, Keycloak, backend, frontend, intelligence system, and broker dependencies.
-4. Configure ingress so the browser can reach the frontend and API.
-5. Point the application to cluster-internal service names for PostgreSQL, Redis, and other internal services.
+The app can start with many defaults, but full functionality requires proper secrets.
 
-### Example Minikube workflow
-
-```bash
-minikube start --driver=docker
-minikube addons enable ingress
-kubectl create secret generic fireguard-secrets --from-env-file=.env
-eval $(minikube -p minikube docker-env)
-docker compose build backend frontend intelligence
-kubectl apply -f <your-k8s-manifests-directory>
-minikube tunnel
-```
-
-If you use Kubernetes, make sure the environment variables for internal routing point to cluster service DNS names rather than `localhost`.
-For browser access, expose the frontend and the MQTT WebSocket endpoint through ingress or a reverse proxy.
-
-## Configuration
-
-The backend reads configuration from environment variables or `.env`.
-
-Common settings include:
+### Backend/worker critical variables
 
 - `DATABASE_URL`
 - `REDIS_URL`
-- `BACKEND_CORS_ORIGINS`
-- `HIVEMQ_*`
-- `THINGSPEAK_*`
+- `HIVEMQ_HOST`, `HIVEMQ_PORT`
+- `HIVEMQ_USERNAME`, `HIVEMQ_PASSWORD` (if broker auth enabled)
+- `THINGSPEAK_WRITE_API_KEY`
+- `THINGSPEAK_CHANNEL_ID`
+
+### Frontend build/runtime variables
+
+- `VITE_API_URL`
+- `VITE_KEYCLOAK_URL`
+- `VITE_MQTT_BROKER_URL`
+- `VITE_MQTT_USERNAME`, `VITE_MQTT_PASSWORD`
+- `VITE_THINGSPEAK_CHANNEL_ID`
+- `VITE_THINGSPEAK_READ_API_KEY`
+
+### Feature/test toggles
+
 - `MQTT_TEST_MODE`
 - `THINGSPEAK_TEST_MODE`
+- `THINGSPEAK_BACKFILL_ON_STARTUP`
 
-In production, the usual defaults are:
+Recommended production values:
 
 - `MQTT_TEST_MODE=false`
 - `THINGSPEAK_TEST_MODE=false`
 - `THINGSPEAK_BACKFILL_ON_STARTUP=false`
 
-For local development, `docker-compose.yml` wires the services together on the Docker network and enables faster MQTT testing by default, while `docker-compose.prod.yml` keeps the test modes off and exposes only the public-facing ports.
+## Local Development with Docker Compose
 
-## Development and testing notes
+This is the recommended local setup.
 
-- `MQTT_TEST_MODE` enables a short interval MQTT push loop for testing alert delivery.
-- `THINGSPEAK_TEST_MODE` enables a short interval ThingSpeak push loop for graph validation.
-- `THINGSPEAK_BACKFILL_ON_STARTUP` controls whether the backend seeds historical ThingSpeak data when it starts.
+### 1. Create `.env`
 
-## Testing and CI
+Create a root `.env` file and provide at least:
 
-The repository uses automated tests and CI for the backend, frontend, and intelligence system.
+```env
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+POSTGRES_DB=fireguard_db
 
-Pre-commit hooks can be installed with:
+KC_POSTGRES_USER=keycloak_user
+KC_POSTGRES_PASSWORD=keycloak_password
+KC_POSTGRES_DB=keycloak_db
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=admin
 
-```bash
-pip install pre-commit
-pre-commit install
+DATABASE_URL=postgresql+asyncpg://user:password@db:5432/fireguard_db
+REDIS_URL=redis://redis:6379/0
+
+HIVEMQ_HOST=hivemq
+HIVEMQ_PORT=1883
+HIVEMQ_USERNAME=
+HIVEMQ_PASSWORD=
+
+THINGSPEAK_CHANNEL_ID=<your_channel_id>
+THINGSPEAK_WRITE_API_KEY=<your_write_key>
+
+VITE_API_URL=http://localhost:8000
+VITE_KEYCLOAK_URL=http://localhost:8080/auth
+VITE_MQTT_BROKER_URL=ws://localhost:8081/mqtt
+VITE_MQTT_USERNAME=
+VITE_MQTT_PASSWORD=
+VITE_THINGSPEAK_CHANNEL_ID=<your_channel_id>
+VITE_THINGSPEAK_READ_API_KEY=<your_read_key>
 ```
 
-Image publishing is handled by the GitHub Actions workflow in `.github/workflows/docker-publish.yml`.
+### 2. Start stack
 
-## Documentation
+```bash
+docker compose up --build
+```
 
-The project uses Material for MkDocs as a single documentation platform for backend,
-intelligence-system, and frontend.
+### 3. Local endpoints
 
-What is generated automatically:
+- Frontend (Vite dev): http://localhost:5173
+- Backend API docs: http://localhost:8000/api/docs/
+- Keycloak: http://localhost:8080/auth/
+- Docs container: http://localhost:8088
 
-- Python API reference from backend and intelligence-system docstrings
-- Frontend API reference from TypeDoc
-- Static docs site for GitHub Pages and in-cluster `/docs` publishing
+### 4. Seed Keycloak realm (recommended)
 
-Local docs build:
+Use Keycloak admin console import:
+
+1. Open http://localhost:8080/auth/admin
+2. Login with `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD`
+3. Realm selector -> Create realm -> Import
+4. Import file: `realm-exports/realm-export-locahost.json`
+5. Confirm realm `FireGuard` and clients `frontend-client` and `backend-client` exist
+
+Notes:
+
+- `realm-export-locahost.json` is the local-ready export.
+- If you use another export file, verify realm name, redirect URIs, and client IDs before using it.
+
+## Local Development with Minikube
+
+Use this when testing Kubernetes manifests locally.
+
+### 1. Start Minikube and ingress
+
+```bash
+minikube start --driver=docker
+minikube addons enable ingress
+```
+
+### 2. Create Kubernetes secret from local env file
+
+Manifests read env from `fireguard-secrets`.
+
+```bash
+kubectl create secret generic fireguard-secrets \
+  --from-env-file=.env \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### 3. Apply manifests
+
+```bash
+kubectl apply -f k8s-manifests/
+```
+
+### 4. Expose host locally
+
+Get Minikube IP:
+
+```bash
+minikube ip
+```
+
+Add a hosts entry (replace IP):
+
+```text
+<minikube-ip> group10.ada502-fireguard.live
+```
+
+Then access:
+
+- http://group10.ada502-fireguard.live/
+- http://group10.ada502-fireguard.live/docs/
+
+### 5. Keycloak import in Minikube
+
+Option A (recommended):
+
+- Port-forward Keycloak service:
+
+```bash
+kubectl port-forward svc/keycloak 8080:8080
+```
+
+- Open http://localhost:8080/auth/admin and import realm file through UI.
+
+Option B:
+
+- Copy export file into pod and use Keycloak CLI import tooling.
+- Use only if you already manage Keycloak imports via CLI scripts.
+
+## Documentation: Where to Find It
+
+### Generated docs in repository
+
+- Frontend generated API reference markdown:
+  - `docs/frontend/reference/`
+- Frontend catalog page:
+  - `docs/frontend/api-catalog.md`
+
+### Local docs preview
 
 ```bash
 uv sync --project docs
@@ -282,15 +232,156 @@ cp -R frontend/dist/docs/reference/. docs/frontend/reference/
 PYTHONPATH=backend/src:intelligence-system/src uv run --project docs mkdocs serve
 ```
 
-Publish flow:
+Default local MkDocs URL: http://127.0.0.1:8000
 
-- GitHub Pages deploy is handled by `.github/workflows/docs.yml`
-- Docs container image publishing is handled by `.github/workflows/docker-publish.yml`
-- Kubernetes exposure is configured with `/docs` route in `k8s-manifests/ingress.yaml`
+### GitHub docs publication
 
-## Troubleshooting
+Docs workflow publishes to GitHub Pages from `.github/workflows/docs.yml`.
 
-- If the API starts but MQTT alerts do not appear, confirm the backend can reach HiveMQ and that the username/password are correct.
-- If ThingSpeak receives no points, check `THINGSPEAK_WRITE_API_KEY`, `THINGSPEAK_CHANNEL_ID`, and the test/backfill flags.
-- If Redis-driven SSE updates do not appear, verify that the backend and intelligence system share the same Redis instance and that the hourly event is being published.
-- If Kubernetes traffic fails, check the ingress host, secret values, and service DNS names.
+URL:
+
+- https://[username].github.io/ADA502-FireGuard-Project/
+
+If not available, ensure GitHub Pages is enabled in repo settings.
+
+### In-cluster docs publication
+
+Docs container is exposed at `/docs` through ingress:
+
+- https://group10.ada502-fireguard.live/docs/
+
+## CI/CD Workflows
+
+### 1) Main CI pipeline
+
+File: `.github/workflows/ci.yml`
+
+Runs on push/PR to `main`:
+
+- Secret scanning (`gitleaks`)
+- Backend checks: lint, tests, Bandit, Docker build, Trivy
+- Intelligence checks: lint, tests, Bandit, Docker build, Trivy
+- Frontend checks: lint, typecheck, build, npm audit, Docker build, Trivy
+- DAST baseline scan with OWASP ZAP
+
+Deploy job (push to `main` only):
+
+- SSH to NREC host
+- `git pull`
+- `kubectl apply -f k8s-manifests/`
+- Restart deployments: backend, frontend, intelligence, docs
+- Wait for rollout status
+- Print ingress + docs pod status
+
+### 2) Docker image publishing
+
+File: `.github/workflows/docker-publish.yml`
+
+On push to `main`:
+
+- Builds and pushes images to GHCR:
+  - `ghcr.io/<repo>-backend:latest`
+  - `ghcr.io/<repo>-frontend:latest`
+  - `ghcr.io/<repo>-intelligence:latest`
+  - `ghcr.io/<repo>-docs:latest` (non-blocking)
+
+### 3) Docs publishing
+
+File: `.github/workflows/docs.yml`
+
+On push to `main`:
+
+- Runs TypeDoc for frontend API
+- Syncs generated frontend docs into `docs/frontend/reference/`
+- Builds MkDocs site
+- Publishes to GitHub Pages when build artifact exists
+- Uses non-blocking docs behavior to avoid blocking app delivery
+
+## NREC Deployment Notes
+
+Current NREC deployment target is Kubernetes exposed at:
+
+- https://group10.ada502-fireguard.live/
+
+Operational behavior:
+
+- Deploy job applies manifests on host and restarts workloads.
+- Deployments use `imagePullPolicy: Always` for app images.
+- Image publishing (`docker-publish.yml`) and Kubernetes deploy (`ci.yml`) are separate workflows on `main`.
+  If deploy finishes before fresh images are pushed, rerun deploy (or rollout restart) once image publishing completes.
+- Ingress routes:
+  - `/` -> frontend service
+  - `/api` -> backend
+  - `/auth` -> keycloak
+  - `/mqtt` -> HiveMQ websocket endpoint
+  - `/docs` -> docs service
+
+If deployment succeeded but `/docs` is unavailable, run:
+
+```bash
+kubectl get ingress fireguard-ingress -o wide
+kubectl get svc docs
+kubectl get pods -l app=docs
+kubectl describe pod -l app=docs
+kubectl logs deployment/docs
+```
+
+## How to Verify a Fresh Deploy
+
+After merge to `main`:
+
+1. Check Actions:
+   - CI workflow completed
+   - Docker publish workflow completed
+2. Check cluster rollout:
+
+```bash
+kubectl rollout status deployment/backend
+kubectl rollout status deployment/frontend
+kubectl rollout status deployment/intelligence
+kubectl rollout status deployment/docs
+```
+
+3. Open live URLs:
+   - https://group10.ada502-fireguard.live/
+   - https://group10.ada502-fireguard.live/docs/
+
+## Security and Secret Handling
+
+- Do not commit real API keys/tokens in `.env`, ConfigMaps, or markdown.
+- Store production credentials in:
+  - GitHub Secrets/Variables (for workflows)
+  - Kubernetes secrets (`fireguard-secrets`) on target clusters
+- Rotate ThingSpeak and MQTT credentials if they were ever committed publicly.
+
+## Troubleshooting Quick Reference
+
+- API reachable, UI broken:
+  - verify `VITE_API_URL` and frontend build args
+- Login fails:
+  - verify realm import, `frontend-client`, redirect URIs, and `/auth` ingress path
+- MQTT alerts missing:
+  - verify HiveMQ auth credentials and websocket route `/mqtt`
+- ThingSpeak graph empty:
+  - verify `THINGSPEAK_CHANNEL_ID`, write/read keys, and backend worker logs
+- Docs 404/unreachable on cluster:
+  - verify docs deployment/service/ingress and docs image pull status
+
+## Useful Commands
+
+```bash
+# Local full stack
+docker compose up --build
+
+# Rebuild frontend docs and MkDocs locally
+npm --prefix frontend run docs:api
+mkdir -p docs/frontend/reference
+cp -R frontend/dist/docs/reference/. docs/frontend/reference/
+PYTHONPATH=backend/src:intelligence-system/src uv run --project docs mkdocs build
+
+# Re-apply cluster manifests
+kubectl apply -f k8s-manifests/
+
+# Force pull latest images by restarting deployments
+kubectl rollout restart deployment/backend deployment/frontend deployment/intelligence deployment/docs
+```
