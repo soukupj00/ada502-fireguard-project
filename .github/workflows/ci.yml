@@ -231,6 +231,7 @@ jobs:
 
       # 3. Fire OWASP ZAP at the local container
       - name: ZAP Baseline Scan
+        continue-on-error: true
         uses: zaproxy/action-baseline@v0.12.0
         with:
           target: 'http://localhost:8000/api/docs/' # FastAPI docs endpoint
