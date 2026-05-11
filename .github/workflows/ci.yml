@@ -233,7 +233,8 @@ jobs:
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: 'http://localhost:8000/api/v1/docs' # Point it at your API or Swagger docs
+          target: 'http://localhost:8000/api/docs/' # FastAPI docs endpoint
+          allow_issue_writing: false # Avoid failing on restricted GITHUB_TOKEN permissions
           fail_action: false # Set to true later once you fix initial warnings!
 
   # ------------------------------------------------------------------
