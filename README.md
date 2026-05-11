@@ -1,7 +1,7 @@
 # FireGuard
 
 FireGuard is a fire-risk monitoring and analytics platform.
-It combines a React frontend, FastAPI backend, intelligence worker, MQTT alerting, Keycloak auth, PostgreSQL, Redis, and generated documentation.
+It combines a React frontend, FastAPI backend, Intelligence Worker, MQTT alerting, ThingSpeak IoT analytics, Keycloak auth, PostgreSQL database, Redis, and automatically generated documentation.
 
 ## Live Environment
 
