@@ -187,13 +187,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 0. Create an empty .env file so Docker Compose doesn't crash
-      - name: Create dummy .env
-        run: touch .env
+      # 0. Create the env file expected by docker-compose.yml
+      - name: Create CI env file
+        run: |
+          cat > .env.compose <<'EOF'
+          POSTGRES_USER=user
+          POSTGRES_PASSWORD=password
+          POSTGRES_DB=fireguard_db
+          KC_POSTGRES_USER=keycloak_user
+          KC_POSTGRES_PASSWORD=keycloak_password
+          KC_POSTGRES_DB=keycloak_db
+          KEYCLOAK_ADMIN=admin
+          KEYCLOAK_ADMIN_PASSWORD=admin
+          DATABASE_URL=postgresql+asyncpg://user:password@db:5432/fireguard_db
+          REDIS_URL=redis://redis:6379/0
+          HIVEMQ_HOST=hivemq
+          HIVEMQ_PORT=1883
+          HIVEMQ_USERNAME=
+          HIVEMQ_PASSWORD=
+          HIVEMQ_USE_TLS=false
+          HIVEMQ_CA_CERT=
+          HIVEMQ_CLIENT_CERT=
+          HIVEMQ_CLIENT_KEY=
+          HIVEMQ_TLS_INSECURE=false
+          MQTT_TEST_MODE=true
+          THINGSPEAK_WRITE_API_KEY=
+          VITE_API_URL=http://localhost:8000
+          VITE_KEYCLOAK_URL=http://localhost:8080/auth
+          VITE_MQTT_BROKER_URL=ws://localhost:8081/mqtt
+          VITE_MQTT_USERNAME=
+          VITE_MQTT_PASSWORD=
+          VITE_THINGSPEAK_CHANNEL_ID=
+          VITE_THINGSPEAK_READ_API_KEY=
+          EOF
 
       # 1. Spin up your backend locally inside GitHub Actions
       - name: Start Application locally
-        run: docker compose -f docker-compose.yml up -d backend db
+        run: docker compose --env-file .env.compose -f docker-compose.yml up -d backend db
 
       # 2. Wait for FastAPI to be healthy
       - name: Wait for Backend
