@@ -44,7 +44,15 @@ jobs:
             --build-arg VITE_THINGSPEAK_CHANNEL_ID="${{ secrets.VITE_THINGSPEAK_CHANNEL_ID }}" \
             --build-arg VITE_THINGSPEAK_READ_API_KEY="${{ secrets.VITE_THINGSPEAK_READ_API_KEY }}" \
             -t $IMAGE_PREFIX-frontend:latest ./frontend
-          docker push $IMAGE_PREFIX-frontend:latest
+          for i in 1 2 3; do
+            docker push $IMAGE_PREFIX-frontend:latest && break
+            if [ "$i" -eq 3 ]; then
+              echo "Frontend image push failed after 3 attempts"
+              exit 1
+            fi
+            echo "Retrying frontend push after transient registry error (attempt $i failed)..."
+            sleep 10
+          done
 
       - name: Build and push Intelligence
         run: |
