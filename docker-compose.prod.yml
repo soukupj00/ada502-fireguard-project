@@ -53,6 +53,11 @@ services:
       - ./intelligence-system/hivemq/extensions/hivemq-file-rbac-extension:/opt/hivemq/extensions/hivemq-file-rbac-extension:ro
       - ./intelligence-system/hivemq/extensions/hivemq-allow-all-extension/DISABLED:/opt/hivemq/extensions/hivemq-allow-all-extension/DISABLED:ro
       - ./intelligence-system/hivemq/certs:/opt/hivemq/certs:ro
+    env_file:
+      - .env.compose
+    environment:
+      # Disable remote JMX in non-debug/prod compose to avoid hostname resolution errors
+      - JAVA_TOOL_OPTIONS=-Dcom.sun.management.jmxremote=false -Djava.rmi.server.hostname=hivemq
 
   # 5. FastAPI Backend
   backend:
@@ -67,6 +72,8 @@ services:
         condition: service_started
       hivemq:
         condition: service_started
+    env_file:
+      - .env.compose
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://fireuser:firepassword@db:5432/fireguard_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -89,6 +96,8 @@ services:
     depends_on:
       - db
       - redis
+    env_file:
+      - .env.compose
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://fireuser:firepassword@db:5432/fireguard_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -109,6 +118,8 @@ services:
         VITE_MQTT_PASSWORD: ${VITE_MQTT_PASSWORD:-}
         VITE_THINGSPEAK_CHANNEL_ID: ${VITE_THINGSPEAK_CHANNEL_ID:-}
         VITE_THINGSPEAK_READ_API_KEY: ${VITE_THINGSPEAK_READ_API_KEY:-}
+    env_file:
+      - .env.compose
     restart: always
     ports:
       - "80:80"  # This is the ONLY port exposed to the internet

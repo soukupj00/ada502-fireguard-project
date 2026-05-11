@@ -33,6 +33,9 @@ junit/
 .env.local
 .env.production
 .env-*
+# Explicit env files for this project (already generated locally)
+.env.compose
+.env.k8s
 # Keep example files
 !*.example
 

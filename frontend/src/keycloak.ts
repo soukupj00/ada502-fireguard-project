@@ -8,6 +8,7 @@
  */
 
 import Keycloak from "keycloak-js"
+import { KEYCLOAK_URL } from "./lib/env"
 
 /**
  * Keycloak client configuration.
@@ -21,7 +22,7 @@ import Keycloak from "keycloak-js"
  * @property {string} clientId - OAuth2 client ID registered in Keycloak
  */
 const keycloakConfig = {
-  url: import.meta.env.VITE_KEYCLOAK_URL || "/auth",
+  url: KEYCLOAK_URL,
   realm: "FireGuard",
   clientId: "frontend-client",
 }

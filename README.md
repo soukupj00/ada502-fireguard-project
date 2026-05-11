@@ -87,9 +87,9 @@ Recommended production values:
 
 This is the recommended local setup.
 
-### 1. Create `.env`
+### 1. Create `.env.compose`
 
-Create a root `.env` file and provide at least:
+Create a root `.env.compose` file and provide at least:
 
 ```env
 POSTGRES_USER=user
@@ -122,10 +122,10 @@ VITE_THINGSPEAK_CHANNEL_ID=<your_channel_id>
 VITE_THINGSPEAK_READ_API_KEY=<your_read_key>
 ```
 
-### 2. Start stack
+### 2. Run Docker Compose
 
 ```bash
-docker compose up --build
+docker compose --env-file .env.compose up --build
 ```
 
 ### 3. Local endpoints
@@ -135,9 +135,12 @@ docker compose up --build
 - Keycloak: http://localhost:8080/auth/
 - Docs container: http://localhost:8088
 
-### 4. Seed Keycloak realm (recommended)
+### 4. HiveMQ and Keycloak notes
 
-Use Keycloak admin console import:
+- HiveMQ: compose and Minikube manifests disable remote JMX by default to avoid Java hostname resolution failures.
+- Keycloak: local compose includes the `keycloak` service. If using external Keycloak, update `VITE_KEYCLOAK_URL` and related `KEYCLOAK_*` variables.
+
+### 5. Seed Keycloak realm (recommended)
 
 1. Open http://localhost:8080/auth/admin
 2. Login with `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD`
@@ -145,73 +148,112 @@ Use Keycloak admin console import:
 4. Import file: `realm-exports/realm-export-locahost.json`
 5. Confirm realm `FireGuard` and clients `frontend-client` and `backend-client` exist
 
-Notes:
+## Local Development with Minikube (use `fireguard.local`)
 
-- `realm-export-locahost.json` is the local-ready export.
-- If you use another export file, verify realm name, redirect URIs, and client IDs before using it.
+Use Minikube to test Kubernetes manifests locally with a local domain.
 
-## Local Development with Minikube
-
-Use this when testing Kubernetes manifests locally.
-
-### 1. Start Minikube and ingress
+### 1. Start Minikube and enable ingress
 
 ```bash
 minikube start --driver=docker
 minikube addons enable ingress
 ```
 
-### 2. Create Kubernetes secret from local env file
-
-Manifests read env from `fireguard-secrets`.
+### 2. Create Kubernetes secret from `.env.k8s`
 
 ```bash
 kubectl create secret generic fireguard-secrets \
-  --from-env-file=.env \
+  --from-env-file=.env.k8s \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-### 3. Apply manifests
+### 3. Apply manifests and local ingress
+
+Apply core manifests first, then the local ingress file:
 
 ```bash
 kubectl apply -f k8s-manifests/
+kubectl apply -f k8s-manifests-local/ingress.local.yaml
 ```
 
-### 4. Expose host locally
+### 3.1 Use a local frontend image for Minikube (recommended)
 
-Get Minikube IP:
+The default Kubernetes frontend deployment points to the production GHCR image, which may contain production `VITE_*` build values. For local Minikube, build and load a local frontend image and apply the local deployment override:
 
 ```bash
-minikube ip
+docker build \
+  --build-arg VITE_API_URL=http://fireguard.local \
+  --build-arg VITE_KEYCLOAK_URL=http://fireguard.local/auth \
+  --build-arg VITE_MQTT_BROKER_URL=ws://fireguard.local/mqtt \
+  --build-arg VITE_MQTT_USERNAME=${VITE_MQTT_USERNAME:-} \
+  --build-arg VITE_MQTT_PASSWORD=${VITE_MQTT_PASSWORD:-} \
+  --build-arg VITE_THINGSPEAK_CHANNEL_ID=${VITE_THINGSPEAK_CHANNEL_ID:-} \
+  --build-arg VITE_THINGSPEAK_READ_API_KEY=${VITE_THINGSPEAK_READ_API_KEY:-} \
+  -t ada502-fireguard-frontend:local \
+  ./frontend
+
+minikube image load ada502-fireguard-frontend:local
+kubectl apply -f k8s-manifests-local/frontend-deployment.local.yaml
+kubectl rollout restart deployment/frontend
+kubectl rollout status deployment/frontend --timeout=120s
 ```
 
-Add a hosts entry (replace IP):
+### 4. Map `fireguard.local` to Minikube IP
 
-```text
-<minikube-ip> group10.ada502-fireguard.live
+```bash
+MINIKUBE_IP=$(minikube ip)
+echo "Minikube IP: $MINIKUBE_IP"
+sudo -- sh -c "printf '%s\t%s\n' $MINIKUBE_IP fireguard.local >> /etc/hosts"
 ```
 
-Then access:
+### 5. Validate local Minikube setup
 
-- http://group10.ada502-fireguard.live/
-- http://group10.ada502-fireguard.live/docs/
+```bash
+kubectl get pods -o wide
+kubectl get svc
+kubectl get ingress fireguard-ingress-local -o wide
 
-### 5. Keycloak import in Minikube
+kubectl rollout status deployment/backend --timeout=120s
+kubectl rollout status deployment/frontend --timeout=120s
+kubectl rollout status deployment/intelligence --timeout=120s
+kubectl rollout status deployment/docs --timeout=120s
 
-Option A (recommended):
+curl -fsS http://fireguard.local/ || echo 'frontend unreachable'
+curl -fsS http://fireguard.local/api/docs/ || echo 'backend docs unreachable'
+curl -fsS http://fireguard.local/auth/ || echo 'keycloak unreachable'
+```
 
-- Port-forward Keycloak service:
+### 6. Import Keycloak realm for Minikube
+
+If this is a fresh Keycloak instance, import the Kubernetes-local realm export:
 
 ```bash
 kubectl port-forward svc/keycloak 8080:8080
 ```
 
-- Open http://localhost:8080/auth/admin and import realm file through UI.
+Then open `http://localhost:8080/auth/admin` and import `realm-exports/realm-export-local-k8s.json`.
 
-Option B:
+### 7. Troubleshooting
 
-- Copy export file into pod and use Keycloak CLI import tooling.
-- Use only if you already manage Keycloak imports via CLI scripts.
+- `404` from browser: verify `/etc/hosts` includes `fireguard.local` and ingress host matches with `kubectl get ingress fireguard-ingress-local -o yaml`.
+- Pending pods/PVCs: check with `kubectl describe pod <pod>` and `kubectl describe pvc <name>`.
+- HiveMQ pending: verify PVC binding and node scheduling events.
+- Keycloak realm import: `kubectl port-forward svc/keycloak 8080:8080` and import via UI.
+
+### 8. Stop Minikube
+
+When you're finished testing, you can stop the Minikube cluster temporarily or delete it entirely:
+
+```bash
+# Stop the cluster (keeps VM/image cache)
+minikube stop
+
+# Delete the cluster and free resources
+minikube delete
+
+# Remove the local hosts entry added earlier (if present)
+sudo sed -i '/fireguard.local/d' /etc/hosts
+```
 
 ## Documentation: Where to Find It
 
@@ -240,7 +282,7 @@ Docs workflow publishes to GitHub Pages from `.github/workflows/docs.yml`.
 
 URL:
 
-- https://[username].github.io/ADA502-FireGuard-Project/
+- https://<github_username>.github.io/ada502-fireguard-project/
 
 If not available, ensure GitHub Pages is enabled in repo settings.
 

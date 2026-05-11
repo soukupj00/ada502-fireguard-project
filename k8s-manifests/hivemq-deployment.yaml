@@ -27,6 +27,9 @@ spec:
         - name: hivemq
           image: hivemq/hivemq-ce:latest
           imagePullPolicy: IfNotPresent
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Dcom.sun.management.jmxremote=false -Djava.rmi.server.hostname=hivemq"
           resources:
             requests:
               memory: "512Mi"

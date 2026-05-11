@@ -59,6 +59,11 @@ services:
       - ./intelligence-system/hivemq/extensions/hivemq-file-rbac-extension:/opt/hivemq/extensions/hivemq-file-rbac-extension:ro
       - ./intelligence-system/hivemq/extensions/hivemq-allow-all-extension/DISABLED:/opt/hivemq/extensions/hivemq-allow-all-extension/DISABLED:ro
       - ./intelligence-system/hivemq/certs:/opt/hivemq/certs:ro
+    env_file:
+      - .env.compose
+    environment:
+      # Disable remote JMX in development to avoid java.net.MalformedURLException
+      - JAVA_TOOL_OPTIONS=-Dcom.sun.management.jmxremote=false -Djava.rmi.server.hostname=hivemq
 
   # 5. FastAPI Backend
   backend:
@@ -75,7 +80,7 @@ services:
       hivemq:
         condition: service_started
     env_file:
-      - ./.env
+      - .env.compose
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/fireguard_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -110,7 +115,7 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - ./.env
+      - .env.compose
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/fireguard_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -140,7 +145,7 @@ services:
     ports:
       - "5173:5173"
     env_file:
-      - ./.env # Load variables from root .env file
+      - .env.compose
     depends_on:
       - backend
       - docs

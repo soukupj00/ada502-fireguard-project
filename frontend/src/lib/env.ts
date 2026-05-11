@@ -20,7 +20,16 @@
  * Raw MQTT broker URL from environment variables.
  * @type {string}
  */
-const rawMqttBrokerUrl = import.meta.env.VITE_MQTT_BROKER_URL || "/mqtt"
+const isLocalClusterHost = () => {
+  const host = window.location.hostname
+  return (
+    host === "fireguard.local" || host === "localhost" || host === "127.0.0.1"
+  )
+}
+
+const rawMqttBrokerUrl = isLocalClusterHost()
+  ? "/mqtt"
+  : import.meta.env.VITE_MQTT_BROKER_URL || "/mqtt"
 
 /**
  * Converts relative paths to absolute WebSocket URLs.
@@ -96,7 +105,9 @@ export const THINGSPEAK_READ_API_KEY =
  *
  * @type {string}
  */
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+export const API_URL = isLocalClusterHost()
+  ? window.location.origin
+  : import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 // --- Keycloak Configuration ---
 
@@ -107,8 +118,9 @@ export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
  *
  * @type {string}
  */
-export const KEYCLOAK_URL =
-  import.meta.env.VITE_KEYCLOAK_URL || "http://localhost:8080/auth"
+export const KEYCLOAK_URL = isLocalClusterHost()
+  ? `${window.location.origin}/auth`
+  : import.meta.env.VITE_KEYCLOAK_URL || "http://localhost:8080/auth"
 
 /**
  * Keycloak realm name for FireGuard users and roles.
